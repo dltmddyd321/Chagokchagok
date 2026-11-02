@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Pleos 클라이언트 ID/시크릿은 local.properties(git 제외)에서 읽는다
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load)
+}
+fun localProperty(key: String) = localProperties.getProperty(key, "")
 
 android {
     namespace = "com.windrr.hyundae"
@@ -17,6 +25,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "PLEOS_CLIENT_ID", "\"${localProperty("PLEOS_CLIENT_ID")}\"")
+        buildConfigField("String", "PLEOS_CLIENT_SECRET", "\"${localProperty("PLEOS_CLIENT_SECRET")}\"")
     }
 
     buildTypes {
@@ -34,6 +45,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
