@@ -19,10 +19,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Pleos Connect SDK (Vehicle, NaviHelper 등)
+        // Pleos Connect SDK (Vehicle, NaviHelper, FusedLocation, TTS, STT)
         maven {
             url = uri("https://nexus-playground.pleos.ai/repository/maven-releases/")
-            content { includeGroup("ai.pleos.playground") }
+            content { includeGroupByRegex("ai\\.pleos\\.playground.*") }
         }
     }
 }
