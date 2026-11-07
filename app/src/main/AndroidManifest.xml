@@ -9,6 +9,8 @@
         CAR_LIGHTS, CAR_MIRRORS, CAR_SAFETY, CAR_SEATS, CAR_TOLL
     -->
     <uses-permission android:name="pleos.car.permission.CAR_INFO" />
+    <uses-permission android:name="android.car.permission.CAR_INFO" />
+    <uses-permission android:name="pleos.car.permission.CAR_SEATS" />
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
     <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
     <uses-permission android:name="pleos.car.permission.CONTROL_CAR_DOORS" />

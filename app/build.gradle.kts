@@ -17,6 +17,8 @@ android {
         version = release(37)
     }
 
+    useLibrary("android.car")
+
     defaultConfig {
         applicationId = "com.windrr.hyundae"
         minSdk = 28
