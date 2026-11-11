@@ -14,6 +14,9 @@ pleosNaviHelper = "3.0.5"
 pleosFusedLocation = "1.1.3"
 pleosSpeech = "3.3.1"
 
+room = "2.8.5"
+ksp = "2.3.13"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -35,8 +38,11 @@ pleos-navihelper = { group = "ai.pleos.playground", name = "NaviHelper", version
 pleos-fusedlocation = { group = "ai.pleos.playground", name = "FusedLocation", version.ref = "pleosFusedLocation" }
 pleos-texttospeech = { group = "ai.pleos.playground", name = "TextToSpeech", version.ref = "pleosSpeech" }
 pleos-speechtotext = { group = "ai.pleos.playground", name = "SpeechToText", version.ref = "pleosSpeech" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
