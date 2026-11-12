@@ -4,9 +4,16 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.windrr.hyundae.data.local.converter.Converters
+import com.windrr.hyundae.data.local.dao.CalculationDao
 import com.windrr.hyundae.data.local.dao.PlanDao
 import com.windrr.hyundae.data.local.dao.VehicleDao
+import com.windrr.hyundae.data.local.entity.ArrangementEntity
+import com.windrr.hyundae.data.local.entity.CalculationEntity
+import com.windrr.hyundae.data.local.entity.PackingSpaceEntity
+import com.windrr.hyundae.data.local.entity.PlacementEntity
 import com.windrr.hyundae.data.local.entity.PlanCarSeatEntity
 import com.windrr.hyundae.data.local.entity.PlanEntity
 import com.windrr.hyundae.data.local.entity.PlanItemEntity
@@ -18,15 +25,22 @@ import com.windrr.hyundae.data.local.entity.VehicleEntity
         PlanEntity::class,
         PlanItemEntity::class,
         PlanCarSeatEntity::class,
+        CalculationEntity::class,
+        ArrangementEntity::class,
+        PackingSpaceEntity::class,
+        PlacementEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun vehicleDao(): VehicleDao
 
     abstract fun planDao(): PlanDao
+
+    abstract fun calculationDao(): CalculationDao
 
     companion object {
         private const val NAME = "load_plan.db"
