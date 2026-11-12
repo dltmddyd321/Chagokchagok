@@ -1,6 +1,7 @@
 package com.windrr.hyundae.data.local.converter
 
 import androidx.room.TypeConverter
+import com.windrr.hyundae.data.local.entity.Orientation
 import com.windrr.hyundae.data.local.entity.SeatCode
 import org.json.JSONArray
 
@@ -21,4 +22,10 @@ class Converters {
 
     @TypeConverter
     fun jsonToSeats(value: String): List<SeatCode> = jsonToStrings(value).map { SeatCode.valueOf(it) }
+
+    @TypeConverter
+    fun orientationsToJson(value: List<Orientation>): String = stringsToJson(value.map { it.name })
+
+    @TypeConverter
+    fun jsonToOrientations(value: String): List<Orientation> = jsonToStrings(value).map { Orientation.valueOf(it) }
 }

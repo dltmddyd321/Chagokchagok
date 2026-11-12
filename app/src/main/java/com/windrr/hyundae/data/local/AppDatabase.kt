@@ -9,6 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.windrr.hyundae.data.local.converter.Converters
 import com.windrr.hyundae.data.local.dao.CalculationDao
 import com.windrr.hyundae.data.local.dao.PlanDao
+import com.windrr.hyundae.data.local.dao.SavedItemDao
 import com.windrr.hyundae.data.local.dao.VehicleDao
 import com.windrr.hyundae.data.local.entity.ArrangementEntity
 import com.windrr.hyundae.data.local.entity.CalculationEntity
@@ -17,6 +18,7 @@ import com.windrr.hyundae.data.local.entity.PlacementEntity
 import com.windrr.hyundae.data.local.entity.PlanCarSeatEntity
 import com.windrr.hyundae.data.local.entity.PlanEntity
 import com.windrr.hyundae.data.local.entity.PlanItemEntity
+import com.windrr.hyundae.data.local.entity.SavedItemEntity
 import com.windrr.hyundae.data.local.entity.VehicleEntity
 
 @Database(
@@ -29,8 +31,9 @@ import com.windrr.hyundae.data.local.entity.VehicleEntity
         ArrangementEntity::class,
         PackingSpaceEntity::class,
         PlacementEntity::class,
+        SavedItemEntity::class,
     ],
-    version = 5,
+    version = AppDatabase.VERSION,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -42,7 +45,12 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun calculationDao(): CalculationDao
 
+    abstract fun savedItemDao(): SavedItemDao
+
     companion object {
+        /** 스키마 버전. 출시 전이라 올리면 기존 로컬 데이터는 지워진다 */
+        const val VERSION = 6
+
         private const val NAME = "load_plan.db"
 
         @Volatile
