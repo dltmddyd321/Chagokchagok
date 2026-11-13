@@ -54,4 +54,62 @@ class ArrivalReminderRuleTest {
         assertFalse(rule.onGearChanged(isPark = true))
         assertFalse(rule.onDestinationArrived())
     }
+
+    private val doorRule = ArrivalReminderRule(now = { clock }, arrivalValidMs = 1_000, doorWaitMs = 500).apply {
+        setDoorSignalAvailable(true)
+    }
+
+    private fun driveArriveAndPark(target: ArrivalReminderRule): Boolean {
+        target.onGearChanged(isPark = false)
+        target.onDestinationArrived()
+        return target.onGearChanged(isPark = true)
+    }
+
+    @Test
+    fun withDoorSignal_arriveAndPark_waitsForDoor() {
+        assertFalse(driveArriveAndPark(doorRule))
+        assertTrue(doorRule.isWaitingForDoor)
+    }
+
+    @Test
+    fun withDoorSignal_doorOpenedAfterArriveAndPark_fires() {
+        driveArriveAndPark(doorRule)
+        assertTrue(doorRule.onDoorOpened())
+        assertFalse(doorRule.isWaitingForDoor)
+    }
+
+    @Test
+    fun withDoorSignal_doorOpenedBeforeParking_doesNotFire() {
+        doorRule.onGearChanged(isPark = false)
+        doorRule.onDestinationArrived()
+        assertFalse(doorRule.onDoorOpened())
+    }
+
+    @Test
+    fun withDoorSignal_doorNeverOpens_firesAfterWait() {
+        driveArriveAndPark(doorRule)
+        clock = 400
+        assertFalse(doorRule.onDoorWaitElapsed())
+        clock = 500
+        assertTrue(doorRule.onDoorWaitElapsed())
+    }
+
+    @Test
+    fun withDoorSignal_leavingParkWhileWaiting_cancelsWait() {
+        driveArriveAndPark(doorRule)
+        doorRule.onGearChanged(isPark = false)
+        assertFalse(doorRule.isWaitingForDoor)
+        assertFalse(doorRule.onDoorOpened())
+        clock = 500
+        assertFalse(doorRule.onDoorWaitElapsed())
+    }
+
+    @Test
+    fun withDoorSignal_firesOnlyOnce() {
+        driveArriveAndPark(doorRule)
+        assertTrue(doorRule.onDoorOpened())
+        assertFalse(doorRule.onDoorOpened())
+        clock = 500
+        assertFalse(doorRule.onDoorWaitElapsed())
+    }
 }

@@ -4,7 +4,11 @@ import ai.pleos.playground.navi.data.DestinationArrivedInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
 import ai.pleos.playground.vehicle.Vehicle
+import ai.pleos.playground.vehicle.api.model.area.DoorArea
+import ai.pleos.playground.vehicle.api.model.capability.AreaBounds
+import ai.pleos.playground.vehicle.constant.area.DoorValue
 import ai.pleos.playground.vehicle.constant.control.VehicleGear
+import ai.pleos.playground.vehicle.listener.DoorPositionListener
 import ai.pleos.playground.vehicle.listener.GearSelectionListener
 import android.app.Service
 import android.content.Context
@@ -18,8 +22,10 @@ import androidx.core.content.ContextCompat
 import com.windrr.hyundae.data.local.AppDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -33,10 +39,12 @@ class ArrivalReminderService : Service() {
     private var planId: String? = null
     private var vehicle: Vehicle? = null
     private var naviHelper: NaviHelper? = null
+    private val doorListeners = mutableMapOf<DoorArea, DoorPositionListener>()
+    private var doorWaitJob: Job? = null
 
     private val gearListener = object : GearSelectionListener {
         override fun onSelected(gear: VehicleGear?) {
-            scope.launch { if (rule.onGearChanged(isPark = gear == VehicleGear.GEAR_PARK)) remind() }
+            scope.launch { handle(rule.onGearChanged(isPark = gear == VehicleGear.GEAR_PARK)) }
         }
 
         override fun onFailed(e: Exception) {
@@ -46,7 +54,7 @@ class ArrivalReminderService : Service() {
 
     private val naviListener = object : NaviHelperEventListener {
         override fun onDestinationArrived(destinationArrivedInfo: DestinationArrivedInfo) {
-            scope.launch { if (rule.onDestinationArrived()) remind() }
+            scope.launch { handle(rule.onDestinationArrived()) }
         }
     }
 
@@ -77,12 +85,57 @@ class ArrivalReminderService : Service() {
         vehicle = Vehicle(this).apply {
             initialize()
             getGear().registerGearSelection(gearListener)
-        }
+        }.also(::watchDoors)
         naviHelper = NaviHelper(this).also { helper ->
             helper.initialize(
                 { helper.addListener(naviListener) },
                 { Log.w(TAG, "NaviHelper 초기화 실패", it) },
             )
+        }
+    }
+
+    private fun watchDoors(vehicle: Vehicle) {
+        val door = vehicle.getDoor()
+        door.checkDoorPositionCapabilities(
+            { _, bounds ->
+                scope.launch {
+                    val watched = bounds.filterKeys { area -> area.values.any { it in WATCHED_DOORS } }
+                    watched.forEach { (area, areaBounds) ->
+                        val listener = doorListener(areaBounds)
+                        door.registerDoorPosition(area, listener)
+                        doorListeners[area] = listener
+                    }
+                    rule.setDoorSignalAvailable(watched.isNotEmpty())
+                }
+            },
+            { Log.w(TAG, "문 위치 지원 여부 확인 실패", it) },
+        )
+    }
+
+    private fun doorListener(bounds: AreaBounds<Int>) = object : DoorPositionListener {
+        override fun onPositionUpdated(position: Int?) {
+            if (position == null || position <= bounds.minValue) return
+            scope.launch { handle(rule.onDoorOpened()) }
+        }
+
+        override fun onFailed(e: Exception) {
+            Log.w(TAG, "문 위치 구독 실패", e)
+        }
+    }
+
+    private suspend fun handle(shouldRemind: Boolean) {
+        if (shouldRemind) {
+            doorWaitJob?.cancel()
+            remind()
+            return
+        }
+        if (rule.isWaitingForDoor && doorWaitJob?.isActive != true) {
+            doorWaitJob = scope.launch {
+                delay(rule.doorWaitMs)
+                if (rule.onDoorWaitElapsed()) remind()
+            }
+        } else if (!rule.isWaitingForDoor) {
+            doorWaitJob?.cancel()
         }
     }
 
@@ -93,10 +146,14 @@ class ArrivalReminderService : Service() {
     }
 
     override fun onDestroy() {
-        vehicle?.let {
-            runCatching { it.getGear().unregisterGearSelection(gearListener) }
-            it.release()
+        vehicle?.let { connected ->
+            runCatching { connected.getGear().unregisterGearSelection(gearListener) }
+            doorListeners.forEach { (area, listener) ->
+                runCatching { connected.getDoor().unregisterDoorPosition(area, listener) }
+            }
+            connected.release()
         }
+        doorListeners.clear()
         naviHelper?.let {
             it.removeListener(naviListener)
             it.release()
@@ -108,6 +165,7 @@ class ArrivalReminderService : Service() {
     companion object {
         private const val TAG = "ArrivalReminder"
         private const val EXTRA_PLAN_ID = "plan_id"
+        private val WATCHED_DOORS = setOf(DoorValue.ROW_1_LEFT, DoorValue.ROW_2_LEFT, DoorValue.ROW_2_RIGHT, DoorValue.REAR)
 
         /** 길안내를 시작할 때 호출. 저장된 계획(plan_id)의 짐이 있을 때만 알림 */
         fun start(context: Context, planId: String) {

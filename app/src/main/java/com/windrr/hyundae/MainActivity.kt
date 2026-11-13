@@ -12,29 +12,38 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.windrr.hyundae.data.local.AppDatabase
+import com.windrr.hyundae.reminder.ArrivalReminderService
+import com.windrr.hyundae.speech.SpeechInputScreen
 import com.windrr.hyundae.ui.theme.HyundaeTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        startArrivalReminderForLatestPlan()
         setContent {
             HyundaeTheme {
                 RequestNotificationPermission()
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                    SpeechInputScreen(modifier = Modifier.padding(innerPadding))
                 }
             }
+        }
+    }
+
+    private fun startArrivalReminderForLatestPlan() {
+        lifecycleScope.launch {
+            val latestPlan = AppDatabase.getInstance(this@MainActivity).planDao().observePlans().first().firstOrNull()
+            latestPlan?.let { ArrivalReminderService.start(this@MainActivity, it.plan.planId) }
         }
     }
 }
@@ -49,21 +58,5 @@ private fun RequestNotificationPermission() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HyundaeTheme {
-        Greeting("Android")
     }
 }
