@@ -31,6 +31,7 @@ android {
 
         buildConfigField("String", "PLEOS_CLIENT_ID", "\"${localProperty("PLEOS_CLIENT_ID")}\"")
         buildConfigField("String", "PLEOS_CLIENT_SECRET", "\"${localProperty("PLEOS_CLIENT_SECRET")}\"")
+        buildConfigField("String", "CHAGOK_API_BASE_URL", "\"${localProperty("CHAGOK_API_BASE_URL").ifBlank { "http://localhost/" }}\"")
     }
 
     buildTypes {
@@ -61,6 +62,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
