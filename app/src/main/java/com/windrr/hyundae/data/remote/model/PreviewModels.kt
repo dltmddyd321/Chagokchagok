@@ -112,6 +112,16 @@ data class ArrangementResponse(
     @SerializedName("placements") val placements: List<PlacementResponse>?,
     @SerializedName("all_in_trunk") val allInTrunk: Boolean?,
     @SerializedName("reason_codes") val reasonCodes: List<String>?,
+    /** 짐 제외 허용 시: 이 배치에서 빼야 하는 짐 */
+    @SerializedName("exclusions") val exclusions: List<ExclusionResponse>? = null,
+)
+
+/** 뺄 짐. reason_code 예: SPACE_CONSTRAINT (공간 부족) */
+data class ExclusionResponse(
+    @SerializedName("item_id") val itemId: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("reason_code") val reasonCode: String?,
 )
 
 /**

@@ -119,7 +119,7 @@ fun LoadResultScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                if (state is LoadResultState.Possible) {
+                if (state is LoadResultState.Result && state.options.isNotEmpty()) {
                     Text(text = "추천 방법", color = PleosTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                     Spacer(Modifier.height(14.dp))
                     state.options.forEachIndexed { index, option ->
@@ -137,8 +137,10 @@ fun LoadResultScreen(
                     Text(text = "${items.sumOf { it.quantity }}", color = CountBlue, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 Spacer(Modifier.height(12.dp))
+                // 고른 방법에서 싣지 못하는 짐은 "불가능" 표시
+                val excluded = (state as? LoadResultState.Result)?.selected?.excludedNames.orEmpty()
                 items.forEach { item ->
-                    ItemRow(item)
+                    ItemRow(item, impossible = item.name in excluded)
                     Spacer(Modifier.height(10.dp))
                 }
             }
@@ -166,14 +168,17 @@ private fun ResultTitle(state: LoadResultState) {
     val (title, subtitle) = when (state) {
         LoadResultState.Loading -> buildAnnotatedString { append("적재 가능 여부를 확인하고 있어요") } to
             "가져갈 짐과 탑승 인원으로 적재 배치를 계산합니다"
-        is LoadResultState.Possible -> buildAnnotatedString {
-            append("현재 조건은 ")
-            withStyle(SpanStyle(color = PossibleBlue)) { append("적재 가능") }
-        } to "추천 방법을 골라 배치를 확인해 보세요"
-        is LoadResultState.Impossible -> buildAnnotatedString {
-            append("현재 조건은 ")
-            withStyle(SpanStyle(color = ImpossibleRed)) { append("적재 불가능") }
-        } to "현재 좌석으로는 짐을 함께 싣기 어렵습니다"
+        is LoadResultState.Result -> if (state.possible) {
+            buildAnnotatedString {
+                append("현재 조건은 ")
+                withStyle(SpanStyle(color = PossibleBlue)) { append("적재 가능") }
+            } to "추천 방법을 골라 배치를 확인해 보세요"
+        } else {
+            buildAnnotatedString {
+                append("현재 조건은 ")
+                withStyle(SpanStyle(color = ImpossibleRed)) { append("적재 불가능") }
+            } to if (state.options.isEmpty()) "조건을 바꿔도 실을 수 있는 배치를 찾지 못했어요" else "현재 좌석으로는 짐을 함께 싣기 어렵습니다"
+        }
         is LoadResultState.Error -> buildAnnotatedString { append("배치를 확인하지 못했어요") } to "잠시 후 다시 시도해 주세요"
     }
     Text(text = title, color = PleosTextPrimary, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
@@ -238,14 +243,14 @@ private fun RetryCard(message: String, onRetry: () -> Unit) {
 
 /** 가져갈 짐 한 줄: 이미지 · 이름 · 치수 · 운반 상태 */
 @Composable
-private fun ItemRow(item: LoadItem) {
+private fun ItemRow(item: LoadItem, impossible: Boolean) {
     val shape = RoundedCornerShape(18.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
             .background(Color.White)
-            .border(1.dp, CardBorder, shape)
+            .border(if (impossible) 1.5.dp else 1.dp, if (impossible) ImpossibleRed.copy(alpha = 0.6f) else CardBorder, shape)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -259,6 +264,16 @@ private fun ItemRow(item: LoadItem) {
                 color = PleosTextSecondary,
                 fontSize = 14.sp,
             )
+        }
+        if (impossible) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(percent = 50))
+                    .background(ImpossibleRed.copy(alpha = 0.1f))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(text = "불가능", color = ImpossibleRed, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -319,8 +334,25 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            val layout = (state as? LoadResultState.Possible)?.selected?.layout
-            TopView(layout = layout, dimmed = layout == null)
+            val selected = (state as? LoadResultState.Result)?.selected
+            val possible = (state as? LoadResultState.Result)?.possible == true
+            TopView(layout = selected?.layout, dimmed = selected == null, placedFill = if (possible) ItemFill else AlternativeFill)
+            // 짐 빼고 싣기: 못 싣는 짐은 위치가 없어서 탑뷰 위에 빨간 안내로
+            if (selected != null && selected.excludedNames.isNotEmpty()) {
+                Text(
+                    text = "${selected.excludedNames.joinToString(", ")} 불가능 · 공간 부족",
+                    color = ImpossibleRed,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 24.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PanelBg.copy(alpha = 0.75f))
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
             when (state) {
                 LoadResultState.Loading -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(
@@ -333,7 +365,7 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(36.dp))
                     Text(text = "배치 확인 중", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
                 }
-                is LoadResultState.Impossible, is LoadResultState.Error -> Text(
+                is LoadResultState.Error -> Text(
                     text = "적재 가능한 배치를\n찾지 못했어요",
                     color = Color.White,
                     fontSize = 28.sp,
@@ -341,7 +373,16 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
                 )
-                is LoadResultState.Possible -> Unit
+                is LoadResultState.Result -> if (state.options.isEmpty()) {
+                    Text(
+                        text = "적재 가능한 배치를\n찾지 못했어요",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        lineHeight = 38.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -349,7 +390,7 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
 
 /** 투싼 탑뷰. 배치안이 있으면 좌석 표시칸·접을 자리·짐 사각형을 올린다 */
 @Composable
-private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean) {
+private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean, placedFill: Color) {
     val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_top_view)
     BoxWithConstraints(
         modifier = Modifier
@@ -372,7 +413,7 @@ private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean) {
             OverlayBox(seat.rect, scale, if (seat.mark == SeatMark.BOARDING) BoardingFill else EmptySeatFill, if (seat.mark == SeatMark.BOARDING) "탑승" else "좌석")
         }
         layout.foldedGroups.forEach { group -> group.markRects.forEach { OverlayBox(it, scale, FoldedFill, "접기") } }
-        layout.items.forEach { item -> OverlayBox(item.rect, scale, ItemFill, item.name) }
+        layout.items.forEach { item -> OverlayBox(item.rect, scale, placedFill, item.name) }
     }
 }
 
@@ -420,3 +461,6 @@ private val BoardingFill = Color(0xCC5D6672)
 private val EmptySeatFill = Color(0xB38C9199)
 private val FoldedFill = Color(0x99202833)
 private val ItemFill = Color(0xE62C5DA6)
+
+/** 적재 불가 상태의 대안 배치 (시안: 청록 점선) */
+private val AlternativeFill = Color(0xCC14544F)
