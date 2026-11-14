@@ -75,6 +75,8 @@ import kotlin.math.roundToInt
 fun LoadResultRoute(
     input: LoadResultInput,
     onClose: () -> Unit,
+    /** 이 조건으로 진행 (고른 추천 방법) */
+    onProceed: (ArrangementOptionUi) -> Unit,
     viewModel: LoadResultViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,6 +88,7 @@ fun LoadResultRoute(
         onSelect = viewModel::select,
         onRetry = viewModel::retry,
         onClose = onClose,
+        onProceed = onProceed,
     )
 }
 
@@ -96,6 +99,7 @@ fun LoadResultScreen(
     onSelect: (Int) -> Unit,
     onRetry: () -> Unit,
     onClose: () -> Unit,
+    onProceed: (ArrangementOptionUi) -> Unit = {},
 ) {
     Row(
         modifier = Modifier
@@ -148,8 +152,10 @@ fun LoadResultScreen(
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 BottomButton(text = "닫기", primary = false, enabled = true, modifier = Modifier.width(150.dp), onClick = onClose)
-                // TODO: "이 조건으로 진행" 다음 화면 시안 나오면 연결
-                BottomButton(text = "이 조건으로 진행  →", primary = true, enabled = false, modifier = Modifier.weight(1f), onClick = {})
+                val chosen = (state as? LoadResultState.Result)?.selected
+                BottomButton(text = "이 조건으로 진행  →", primary = true, enabled = chosen != null, modifier = Modifier.weight(1f)) {
+                    chosen?.let(onProceed)
+                }
             }
         }
 
@@ -170,9 +176,9 @@ private fun ResultTitle(state: LoadResultState) {
             "가져갈 짐과 탑승 인원으로 적재 배치를 계산합니다"
         is LoadResultState.Result -> if (state.possible) {
             buildAnnotatedString {
-                append("현재 조건은 ")
-                withStyle(SpanStyle(color = PossibleBlue)) { append("적재 가능") }
-            } to "추천 방법을 골라 배치를 확인해 보세요"
+                append("현재 조건으로 ")
+                withStyle(SpanStyle(color = PossibleGreen)) { append("적재 가능") }
+            } to "현재 조건으로 적재가 가능합니다"
         } else {
             buildAnnotatedString {
                 append("현재 조건은 ")
@@ -194,7 +200,7 @@ private fun OptionCard(option: ArrangementOptionUi, selected: Boolean, onClick: 
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
+            .background(if (selected) SelectedBg else Color.White)
             .border(if (selected) 2.dp else 1.dp, if (selected) SelectedBorder else CardBorder, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 20.dp),
@@ -204,7 +210,7 @@ private fun OptionCard(option: ArrangementOptionUi, selected: Boolean, onClick: 
             modifier = Modifier
                 .size(26.dp)
                 .clip(CircleShape)
-                .border(2.dp, if (selected) PleosNavy else RadioBorder, CircleShape),
+                .border(2.dp, if (selected) RadioBlue else RadioBorder, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
@@ -212,7 +218,7 @@ private fun OptionCard(option: ArrangementOptionUi, selected: Boolean, onClick: 
                     Modifier
                         .size(14.dp)
                         .clip(CircleShape)
-                        .background(PleosNavy),
+                        .background(RadioBlue),
                 )
             }
         }
@@ -320,7 +326,20 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
             .border(2.dp, PanelBorder, shape)
             .padding(horizontal = 32.dp, vertical = 28.dp),
     ) {
-        Text(text = "배치 결과", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+        val chosen = (state as? LoadResultState.Result)?.selected
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "배치 결과", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            chosen?.let { option ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(BadgeBg)
+                        .padding(horizontal = 28.dp, vertical = 10.dp),
+                ) {
+                    Text(text = "총 ${option.passengerCount}명", color = BadgeText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
         Spacer(Modifier.height(20.dp))
         Box(
             Modifier
@@ -335,8 +354,7 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center,
         ) {
             val selected = (state as? LoadResultState.Result)?.selected
-            val possible = (state as? LoadResultState.Result)?.possible == true
-            TopView(layout = selected?.layout, dimmed = selected == null, placedFill = if (possible) ItemFill else AlternativeFill)
+            TopView(layout = selected?.layout, dimmed = selected == null)
             // 짐 빼고 싣기: 못 싣는 짐은 위치가 없어서 탑뷰 위에 빨간 안내로
             if (selected != null && selected.excludedNames.isNotEmpty()) {
                 Text(
@@ -373,7 +391,16 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
                 )
-                is LoadResultState.Result -> if (state.options.isEmpty()) {
+                is LoadResultState.Result -> if (state.options.isNotEmpty() && state.selected == null) {
+                    Text(
+                        text = "추천 방법을 선택하면\n배치를 보여드려요",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        lineHeight = 38.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center,
+                    )
+                } else if (state.options.isEmpty()) {
                     Text(
                         text = "적재 가능한 배치를\n찾지 못했어요",
                         color = Color.White,
@@ -388,37 +415,54 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
     }
 }
 
-/** 투싼 탑뷰. 배치안이 있으면 좌석 표시칸·접을 자리·짐 사각형을 올린다 */
+/**
+ * 투싼 탑뷰. 배치안이 있으면 짐을 청록 점선 칸으로 그린다 (시안: 좌석 표시칸 없이 짐만).
+ * 트렁크에 싣는 짐은 아래(트렁크 입구)에서 넣는 방향 ↑를 붙이고, 그림 아래에 "트렁크 입구".
+ */
 @Composable
-private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean, placedFill: Color) {
+private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean) {
     val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_top_view)
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxHeight()
-            .aspectRatio(VehicleTopView.CROP_W.toFloat() / VehicleTopView.CROP_H)
-            .alpha(if (dimmed) 0.22f else 1f)
-            .drawBehind {
-                drawImage(
-                    image = image,
-                    srcOffset = IntOffset(VehicleTopView.CROP_LEFT, VehicleTopView.CROP_TOP),
-                    srcSize = IntSize(VehicleTopView.CROP_W, VehicleTopView.CROP_H),
-                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-                    filterQuality = FilterQuality.High,
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxHeight()) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .aspectRatio(VehicleTopView.CROP_W.toFloat() / VehicleTopView.CROP_H)
+                .alpha(if (dimmed) 0.22f else 1f)
+                .drawBehind {
+                    drawImage(
+                        image = image,
+                        srcOffset = IntOffset(VehicleTopView.CROP_LEFT, VehicleTopView.CROP_TOP),
+                        srcSize = IntSize(VehicleTopView.CROP_W, VehicleTopView.CROP_H),
+                        dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                        filterQuality = FilterQuality.High,
+                    )
+                },
+        ) {
+            layout ?: return@BoxWithConstraints
+            val scale = maxWidth / VehicleTopView.CROP_W.toFloat()
+            layout.items.forEach { item -> OverlayBox(item.rect, scale, ItemFill, item.name) }
+            layout.items.filter { it.spaceKind == ArrangementLayoutMapper.KIND_TRUNK }.forEach { item ->
+                Text(
+                    text = "↑",
+                    color = ArrowTeal,
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(
+                        x = scale * ((item.rect.left + item.rect.right) / 2 - VehicleTopView.CROP_LEFT) - 10.dp,
+                        y = scale * (VehicleTopView.TRUNK.bottom - VehicleTopView.CROP_TOP) - 6.dp,
+                    ),
                 )
-            },
-    ) {
-        layout ?: return@BoxWithConstraints
-        val scale = maxWidth / VehicleTopView.CROP_W.toFloat()
-        layout.seats.forEach { seat ->
-            OverlayBox(seat.rect, scale, if (seat.mark == SeatMark.BOARDING) BoardingFill else EmptySeatFill, if (seat.mark == SeatMark.BOARDING) "탑승" else "좌석")
+            }
         }
-        layout.foldedGroups.forEach { group -> group.markRects.forEach { OverlayBox(it, scale, FoldedFill, "접기") } }
-        layout.items.forEach { item -> OverlayBox(item.rect, scale, placedFill, item.name) }
+        if (!dimmed) {
+            Spacer(Modifier.height(8.dp))
+            Text(text = "트렁크 입구", color = Color.White.copy(alpha = 0.6f), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
 @Composable
-private fun OverlayBox(rect: PxRect, scale: Dp, fill: Color, label: String) {
+private fun OverlayBox(rect: PxRect, scale: Dp, fill: Color, label: String, stroke: Color = ItemStroke) {
     Box(
         modifier = Modifier
             .offset(x = scale * (rect.left - VehicleTopView.CROP_LEFT), y = scale * (rect.top - VehicleTopView.CROP_TOP))
@@ -428,7 +472,7 @@ private fun OverlayBox(rect: PxRect, scale: Dp, fill: Color, label: String) {
             .drawBehind {
                 val inset = 1.dp.toPx()
                 drawRoundRect(
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = stroke,
                     topLeft = Offset(inset, inset),
                     size = Size(size.width - inset * 2, size.height - inset * 2),
                     cornerRadius = CornerRadius(6.dp.toPx()),
@@ -437,15 +481,17 @@ private fun OverlayBox(rect: PxRect, scale: Dp, fill: Color, label: String) {
             },
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text = label, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
 
 private val CountBlue = Color(0xFF2E6BD6)
-private val PossibleBlue = Color(0xFF1F63F2)
+private val PossibleGreen = Color(0xFF2E9E86)
 private val ImpossibleRed = Color(0xFFE02424)
 private val CardBorder = Color(0xFFE4EAF3)
-private val SelectedBorder = Color(0xFF6F9CE0)
+private val SelectedBorder = Color(0xFF3B82F6)
+private val SelectedBg = Color(0xFFEFF5FF)
+private val RadioBlue = Color(0xFF2563EB)
 private val RadioBorder = Color(0xFFB9C3D3)
 private val CloseBottom = Color(0xFFEAF1FB)
 private val PrimaryTop = Color(0xFF24477A)
@@ -457,10 +503,9 @@ private val PanelBorder = Color(0xFF3B82F6)
 private val PanelDivider = Color(0xFF23406A)
 private val SpinnerBlue = Color(0xFF5BB6FF)
 private val SpinnerTrack = Color(0xFF2A3D5C)
-private val BoardingFill = Color(0xCC5D6672)
-private val EmptySeatFill = Color(0xB38C9199)
-private val FoldedFill = Color(0x99202833)
-private val ItemFill = Color(0xE62C5DA6)
-
-/** 적재 불가 상태의 대안 배치 (시안: 청록 점선) */
-private val AlternativeFill = Color(0xCC14544F)
+/** 배치한 짐 (시안: 짙은 청록 + 밝은 청록 점선) */
+private val ItemFill = Color(0xCC14544F)
+private val ItemStroke = Color(0xFF45D3C7)
+private val ArrowTeal = Color(0xFF45D3C7)
+private val BadgeBg = Color(0xFFDDF5EC)
+private val BadgeText = Color(0xFF1F8A6E)

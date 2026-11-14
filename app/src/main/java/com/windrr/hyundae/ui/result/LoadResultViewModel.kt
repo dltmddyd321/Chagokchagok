@@ -36,6 +36,8 @@ data class ArrangementOptionUi(
     val layout: ArrangementLayoutUi,
     /** 이 방법에서 싣지 못하는 짐 이름 (짐 빼고 싣기 대안) */
     val excludedNames: List<String> = emptyList(),
+    /** 이 배치의 탑승 인원 (운전자 포함) */
+    val passengerCount: Int = 0,
 )
 
 sealed interface LoadResultState {
@@ -49,9 +51,10 @@ sealed interface LoadResultState {
     data class Result(
         val possible: Boolean,
         val options: List<ArrangementOptionUi>,
-        val selectedIndex: Int = 0,
+        /** 처음엔 미선택 (사용자가 추천 방법을 고르면 탑뷰에 그린다) */
+        val selectedIndex: Int? = null,
     ) : LoadResultState {
-        val selected: ArrangementOptionUi? get() = options.getOrNull(selectedIndex)
+        val selected: ArrangementOptionUi? get() = selectedIndex?.let { options.getOrNull(it) }
     }
 
     data class Error(val message: String) : LoadResultState
@@ -117,15 +120,17 @@ class LoadResultViewModel(
     private fun option(arrangement: ArrangementResponse, calculation: PreviewCalculation, passengerCount: Int): ArrangementOptionUi {
         val layout = ArrangementLayoutMapper.map(arrangement, calculation.inputSnapshot?.items.orEmpty())
         val excluded = arrangement.exclusions.orEmpty().map { it.name }
-        val people = "총 ${arrangement.passengerSeats?.size ?: passengerCount}명 탑승"
+        val count = arrangement.passengerSeats?.size ?: passengerCount
+        val people = "총 ${count}명 탑승"
         return if (excluded.isEmpty()) {
-            ArrangementOptionUi(title = optionTitle(layout, arrangement.allInTrunk == true), subtitle = people, layout = layout)
+            ArrangementOptionUi(title = optionTitle(layout, arrangement.allInTrunk == true), subtitle = people, layout = layout, passengerCount = count)
         } else {
             ArrangementOptionUi(
                 title = "${excluded.joinToString(", ")} 빼고 싣기",
                 subtitle = "$people · ${optionTitle(layout, arrangement.allInTrunk == true)}",
                 layout = layout,
                 excludedNames = excluded,
+                passengerCount = count,
             )
         }
     }
