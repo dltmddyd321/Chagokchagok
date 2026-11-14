@@ -48,6 +48,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.windrr.hyundae.R
+import com.windrr.hyundae.ui.result.LoadResultRoute
+import com.windrr.hyundae.ui.result.LoadResultInput
+import androidx.compose.runtime.remember
 import com.windrr.hyundae.speech.SpeechInputScreen
 import com.windrr.hyundae.ui.home.HomeIntent
 import com.windrr.hyundae.ui.home.HomeRoute
@@ -67,6 +70,8 @@ fun PleosMainScreen() {
     var tab by rememberSaveable { mutableStateOf(PleosTab.HOME) }
     // 짐과 탑승 인원 화면 (null = 홈). 들어올 때마다 새 값 → 입력 초기화
     var loadCheckId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // 적재 결과 화면 (null = 짐과 탑승 인원 화면). 확인을 누를 때마다 새 키 → 새 계산
+    var loadResult by remember { mutableStateOf<Pair<Long, LoadResultInput>?>(null) }
     val homeViewModel: HomeViewModel = viewModel()
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
 
@@ -82,6 +87,7 @@ fun PleosMainScreen() {
             onSelect = {
                 tab = it
                 loadCheckId = null
+                loadResult = null
             },
             vehicleDesc = homeState.vehicleDesc,
             modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 20.dp),
@@ -99,11 +105,21 @@ fun PleosMainScreen() {
             )
             Box(modifier = Modifier.weight(1f)) {
                 when (tab) {
-                    PleosTab.HOME -> if (loadCheckId != null) {
+                    PleosTab.HOME -> if (loadCheckId != null && loadResult != null) {
+                        val (resultId, input) = loadResult!!
+                        LoadResultRoute(
+                            input = input,
+                            // 닫기 → 짐과 탑승 인원 화면 (입력값 그대로)
+                            onClose = { loadResult = null },
+                            viewModel = viewModel(key = "load-result-$resultId"),
+                        )
+                    } else if (loadCheckId != null) {
                         LoadCheckRoute(
                             onBack = { loadCheckId = null },
-                            // TODO: 서버 배치 계산 → 적재 결과 화면 연결
-                            onRequestCheck = { _, _ -> },
+                            // 적재 가능 여부 확인 → 서버 배치 계산 (인원 수만, 자리는 서버가 정함)
+                            onRequestCheck = { items, passengerCount ->
+                                loadResult = System.currentTimeMillis() to LoadResultInput(items, passengerCount)
+                            },
                             viewModel = viewModel(key = "load-check-$loadCheckId"),
                         )
                     } else {

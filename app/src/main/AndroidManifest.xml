@@ -12,6 +12,8 @@
     <uses-permission android:name="android.car.permission.CAR_INFO" />
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
     <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
+    <!-- 좌석 착석 센서: 짐과 탑승 인원 화면의 동승자 수 기본값 -->
+    <uses-permission android:name="pleos.car.permission.CAR_SEATS" />
     <!-- SDK별 필수 퍼미션 (선언 안 하면 호출 시 SecurityException) -->
     <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
     <uses-permission android:name="pleos.car.permission.FUSED_LOCATION" />

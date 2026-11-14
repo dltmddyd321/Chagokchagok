@@ -10,6 +10,8 @@ data class LoadItem(
     val quantity: Int = 1,
     /** "조립 상태" 등 운반 상태 (제품 검색으로 추가했을 때만) */
     val stateLabel: String? = null,
+    /** 서버 transport_state 코드 (PACKAGED/ASSEMBLED/FOLDED). 직접 입력은 null */
+    val transportState: String? = null,
 ) {
     val sizeLabel: String get() = "$widthCm × $depthCm × $heightCm cm"
 
@@ -60,8 +62,10 @@ data class ManualInputState(
 
 data class LoadCheckUiState(
     val items: List<LoadItem> = emptyList(),
-    /** 동승자 수 (운전자 제외) */
+    /** 동승자 수 (운전자 제외). 좌석 착석 센서 값으로 먼저 채우고, 사용자가 −/+로 고치면 그 값을 쓴다 */
     val companions: Int = 0,
+    /** 사용자가 동승자 수를 직접 고쳤는지 (그 뒤로는 센서 값으로 덮어쓰지 않음) */
+    val companionsEdited: Boolean = false,
     /** 치수 직접 입력 창이 열려 있으면 그 입력값 */
     val manualInput: ManualInputState? = null,
     /** 제품명 말하기 → 제품 규격 검색 상태 (null이면 창 닫힘) */

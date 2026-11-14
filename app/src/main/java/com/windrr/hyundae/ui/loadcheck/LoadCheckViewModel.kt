@@ -1,10 +1,13 @@
 package com.windrr.hyundae.ui.loadcheck
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.windrr.hyundae.data.remote.ApiResult
 import com.windrr.hyundae.data.remote.ProductRemoteRepository
+import com.windrr.hyundae.data.vehicle.SeatOccupancySource
+import java.util.UUID
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,11 +15,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 
-class LoadCheckViewModel(
-    private val productRemote: ProductRemoteRepository = ProductRemoteRepository(),
-) : ViewModel() {
+class LoadCheckViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val productRemote = ProductRemoteRepository()
+
+    /** 좌석 착석 센서 → 동승자 수 기본값 */
+    private val seatOccupancy = SeatOccupancySource(application)
 
     private val _state = MutableStateFlow(LoadCheckUiState())
     val state: StateFlow<LoadCheckUiState> = _state.asStateFlow()
@@ -24,12 +29,29 @@ class LoadCheckViewModel(
     private val _effect = Channel<LoadCheckEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
+    init {
+        viewModelScope.launch {
+            seatOccupancy.companions.collect { sensed ->
+                sensed ?: return@collect
+                _state.update {
+                    if (it.companionsEdited) it else it.copy(companions = sensed.coerceIn(0, LoadCheckUiState.MAX_COMPANIONS))
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        seatOccupancy.release()
+    }
+
     fun onIntent(intent: LoadCheckIntent) {
         when (intent) {
             LoadCheckIntent.IncreaseCompanions -> _state.update {
-                it.copy(companions = (it.companions + 1).coerceAtMost(LoadCheckUiState.MAX_COMPANIONS))
+                it.copy(companions = (it.companions + 1).coerceAtMost(LoadCheckUiState.MAX_COMPANIONS), companionsEdited = true)
             }
-            LoadCheckIntent.DecreaseCompanions -> _state.update { it.copy(companions = (it.companions - 1).coerceAtLeast(0)) }
+            LoadCheckIntent.DecreaseCompanions -> _state.update {
+                it.copy(companions = (it.companions - 1).coerceAtLeast(0), companionsEdited = true)
+            }
             is LoadCheckIntent.RemoveItem -> _state.update { s -> s.copy(items = s.items.filterNot { it.key == intent.key }) }
             LoadCheckIntent.OpenManualInput -> _state.update { if (it.canAddItem) it.copy(manualInput = ManualInputState()) else it }
             is LoadCheckIntent.OpenManualInputWithName -> _state.update {
@@ -107,6 +129,7 @@ class LoadCheckViewModel(
                     depthCm = d,
                     heightCm = h,
                     stateLabel = candidate.transportState.shortLabel,
+                    transportState = candidate.transportState.code,
                 )
                 s.copy(items = s.items + item, productSearch = null)
             }

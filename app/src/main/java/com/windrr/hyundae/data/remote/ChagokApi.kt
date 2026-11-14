@@ -8,6 +8,8 @@ import com.windrr.hyundae.data.remote.model.PlanCreateRequest
 import com.windrr.hyundae.data.remote.model.PlanListResponse
 import com.windrr.hyundae.data.remote.model.PlanResponse
 import com.windrr.hyundae.data.remote.model.PlanSort
+import com.windrr.hyundae.data.remote.model.PreviewRequest
+import com.windrr.hyundae.data.remote.model.PreviewResponse
 import com.windrr.hyundae.data.remote.model.ProductSearchRequest
 import com.windrr.hyundae.data.remote.model.ProductSearchResponse
 import retrofit2.Response
@@ -47,6 +49,13 @@ interface ChagokApi {
     /** 계획 상세 (짐 크기까지) */
     @GET("api/v1/plans/{plan_id}")
     suspend fun getPlan(@Path("plan_id") planId: String): Response<ApiResponse<PlanResponse>>
+
+    /** 저장 전 배치 미리 계산 (차 안 즉석 확인) */
+    @POST("api/v1/calculations/preview")
+    suspend fun previewCalculation(
+        @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
+        @Body request: PreviewRequest,
+    ): Response<ApiResponse<PreviewResponse>>
 
     /** 제품명으로 규격 후보 찾기 (서버가 외부 웹 검색 + AI 정리). 검색할 때마다 새 Idempotency-Key */
     @POST("api/v1/products/search")
