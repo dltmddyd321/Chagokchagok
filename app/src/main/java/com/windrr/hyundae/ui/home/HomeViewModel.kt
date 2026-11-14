@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.windrr.hyundae.data.local.AppDatabase
 import com.windrr.hyundae.data.vehicle.VehicleStatusSource
 import com.windrr.hyundae.data.weather.WeatherRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,7 +32,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             vehicleStatus.status.collect { s -> _state.update { it.copy(gear = s.gear, trunkOpen = s.trunkOpen) } }
         }
-        loadWeather()
+        // 날씨: 처음 한 번 + 1시간마다 자동 갱신 (주행 중 지역·날씨가 바뀌므로)
+        viewModelScope.launch {
+            while (true) {
+                loadWeatherNow()
+                delay(WEATHER_REFRESH_MS)
+            }
+        }
     }
 
     fun onIntent(intent: HomeIntent) {
@@ -41,11 +48,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun loadWeather() {
-        viewModelScope.launch {
-            _state.update { it.copy(weatherLoading = true) }
-            val weather = weatherRepository.current()
-            _state.update { it.copy(weather = weather ?: it.weather, weatherLoading = false) }
-        }
+        viewModelScope.launch { loadWeatherNow() }
+    }
+
+    private suspend fun loadWeatherNow() {
+        _state.update { it.copy(weatherLoading = true) }
+        val weather = weatherRepository.current()
+        // 실패하면 이전 날씨를 그대로 둔다
+        _state.update { it.copy(weather = weather ?: it.weather, weatherLoading = false) }
+    }
+
+    private companion object {
+        const val WEATHER_REFRESH_MS = 60 * 60 * 1000L
     }
 
     override fun onCleared() {

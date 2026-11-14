@@ -12,21 +12,37 @@ data class LoadItem(
     val sizeLabel: String get() = "$widthCm × $depthCm × $heightCm cm"
 }
 
-/** 치수 직접 입력 창 상태. 숫자는 입력 중 빈 칸을 허용하려고 문자열로 든다 */
+/**
+ * 치수 직접 입력 창 상태 (시안: 가로·세로·높이 + 숫자판).
+ * 숫자는 입력 중 빈 칸을 허용하려고 문자열로 든다. 선택한 항목에 숫자판 입력이 들어간다.
+ * 이름은 화면에 입력 칸이 없어서, 음성으로 들은 제품명이 있으면 그걸 쓰고 없으면 "짐 N"으로 저장한다.
+ */
 data class ManualInputState(
     val name: String = "",
     val width: String = "",
     val depth: String = "",
     val height: String = "",
-    val quantity: Int = 1,
+    val selected: ManualField = ManualField.WIDTH,
 ) {
     private fun String.cm(): Int? = toIntOrNull()?.takeIf { it in 1..LoadCheckUiState.MAX_CM }
 
-    val canAdd: Boolean get() = name.isNotBlank() && width.cm() != null && depth.cm() != null && height.cm() != null
+    fun valueOf(field: ManualField): String = when (field) {
+        ManualField.WIDTH -> width
+        ManualField.DEPTH -> depth
+        ManualField.HEIGHT -> height
+    }
 
-    fun toItem(key: String): LoadItem? {
-        if (!canAdd) return null
-        return LoadItem(key, name.trim(), width.cm()!!, depth.cm()!!, height.cm()!!, quantity)
+    fun with(field: ManualField, value: String): ManualInputState = when (field) {
+        ManualField.WIDTH -> copy(width = value)
+        ManualField.DEPTH -> copy(depth = value)
+        ManualField.HEIGHT -> copy(height = value)
+    }
+
+    val canSave: Boolean get() = width.cm() != null && depth.cm() != null && height.cm() != null
+
+    fun toItem(key: String, fallbackName: String): LoadItem? {
+        if (!canSave) return null
+        return LoadItem(key, name.trim().ifBlank { fallbackName }, width.cm()!!, depth.cm()!!, height.cm()!!)
     }
 }
 
@@ -57,7 +73,7 @@ data class LoadCheckUiState(
     }
 }
 
-enum class ManualField { NAME, WIDTH, DEPTH, HEIGHT }
+enum class ManualField(val label: String) { WIDTH("가로"), DEPTH("세로"), HEIGHT("높이") }
 
 sealed interface LoadCheckIntent {
     data object IncreaseCompanions : LoadCheckIntent
@@ -74,9 +90,20 @@ sealed interface LoadCheckIntent {
 
     data object CloseManualInput : LoadCheckIntent
 
-    data class ManualChanged(val field: ManualField, val value: String) : LoadCheckIntent
+    /** 치수 항목 선택 (숫자판 입력 대상) */
+    data class SelectField(val field: ManualField) : LoadCheckIntent
 
-    data class ManualQuantity(val delta: Int) : LoadCheckIntent
+    /** 항목 옆 −/+ (1cm씩) */
+    data class StepField(val field: ManualField, val delta: Int) : LoadCheckIntent
+
+    /** 숫자판 숫자 */
+    data class KeypadDigit(val digit: Int) : LoadCheckIntent
+
+    /** 숫자판 지우기: 선택 항목을 비움 */
+    data object KeypadClear : LoadCheckIntent
+
+    /** 숫자판 ⌫: 마지막 숫자 지우기 */
+    data object KeypadBackspace : LoadCheckIntent
 
     data object ConfirmManualInput : LoadCheckIntent
 

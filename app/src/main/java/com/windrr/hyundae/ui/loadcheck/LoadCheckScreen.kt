@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.windrr.hyundae.R
@@ -100,13 +101,7 @@ fun LoadCheckRoute(
             viewModel = viewModel(key = "product-voice-$session"),
         )
     }
-    state.manualInput?.let { input ->
-        ManualInputDialog(
-            input = input,
-            maxQuantity = (LoadCheckUiState.MAX_ITEMS - state.itemCount).coerceAtLeast(1),
-            onIntent = viewModel::onIntent,
-        )
-    }
+    state.manualInput?.let { input -> ManualInputDialog(input = input, onIntent = viewModel::onIntent) }
 }
 
 @Composable
@@ -438,52 +433,55 @@ private fun CheckButton(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** 치수 직접 입력 창: 이름 · 가로/세로/높이(cm) · 수량 */
+/**
+ * 짐 치수 직접 입력 (시안): 왼쪽 가로·세로·높이(−/값/+), 오른쪽 숫자판, 아래 취소/저장.
+ * 항목을 누르면 선택되고, 숫자판 입력은 선택한 항목에 들어간다.
+ */
 @Composable
-private fun ManualInputDialog(input: ManualInputState, maxQuantity: Int, onIntent: (LoadCheckIntent) -> Unit) {
-    Dialog(onDismissRequest = { onIntent(LoadCheckIntent.CloseManualInput) }) {
+private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckIntent) -> Unit) {
+    Dialog(
+        onDismissRequest = { onIntent(LoadCheckIntent.CloseManualInput) },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Column(
             modifier = Modifier
-                .width(520.dp)
-                .clip(RoundedCornerShape(24.dp))
+                .fillMaxWidth(0.78f)
+                .clip(RoundedCornerShape(32.dp))
                 .background(Color.White)
-                .padding(28.dp),
+                .padding(horizontal = 44.dp, vertical = 40.dp),
         ) {
-            Text(text = "치수 직접 입력", color = PleosTextPrimary, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(20.dp))
-            DialogField("짐 이름", input.name, "예: 책상", KeyboardType.Text) { onIntent(LoadCheckIntent.ManualChanged(ManualField.NAME, it)) }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) {
-                    DialogField("가로 (cm)", input.width, "0", KeyboardType.Number) { onIntent(LoadCheckIntent.ManualChanged(ManualField.WIDTH, it)) }
-                }
-                Box(Modifier.weight(1f)) {
-                    DialogField("세로 (cm)", input.depth, "0", KeyboardType.Number) { onIntent(LoadCheckIntent.ManualChanged(ManualField.DEPTH, it)) }
-                }
-                Box(Modifier.weight(1f)) {
-                    DialogField("높이 (cm)", input.height, "0", KeyboardType.Number) { onIntent(LoadCheckIntent.ManualChanged(ManualField.HEIGHT, it)) }
-                }
+            Text(text = "짐 치수 직접 입력", color = PleosTextPrimary, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(10.dp))
+            Text(text = "치수 항목을 선택한 뒤 숫자판으로 입력해 주세요", color = PleosTextSecondary, fontSize = 17.sp)
+            if (input.name.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(text = "“${input.name}”", color = PleosNavy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "수량", color = PleosTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                StepButton(text = "−", enabled = input.quantity > 1, onClick = { onIntent(LoadCheckIntent.ManualQuantity(-1)) }, size = 44.dp)
-                Text(
-                    text = "${input.quantity}",
-                    color = PleosTextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.width(56.dp),
-                )
-                StepButton(text = "+", enabled = input.quantity < maxQuantity, onClick = { onIntent(LoadCheckIntent.ManualQuantity(1)) }, size = 44.dp)
+            Spacer(Modifier.height(28.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    ManualField.entries.forEach { field ->
+                        DimensionRow(
+                            field = field,
+                            value = input.valueOf(field),
+                            selected = input.selected == field,
+                            onIntent = onIntent,
+                        )
+                    }
+                }
+                Keypad(onIntent = onIntent, modifier = Modifier.weight(1f))
             }
-            Spacer(Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+
+            Spacer(Modifier.height(36.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 DialogButton("취소", primary = false, enabled = true, modifier = Modifier.weight(1f)) {
                     onIntent(LoadCheckIntent.CloseManualInput)
                 }
-                DialogButton("추가", primary = true, enabled = input.canAdd, modifier = Modifier.weight(1f)) {
+                DialogButton("저장", primary = true, enabled = input.canSave, modifier = Modifier.weight(1f)) {
                     onIntent(LoadCheckIntent.ConfirmManualInput)
                 }
             }
@@ -491,49 +489,122 @@ private fun ManualInputDialog(input: ManualInputState, maxQuantity: Int, onInten
     }
 }
 
+/** 가로 (cm)  [−]  0  [+] — 선택하면 파란 테두리·연한 파랑 */
 @Composable
-private fun DialogField(label: String, value: String, placeholder: String, keyboardType: KeyboardType, onChange: (String) -> Unit) {
-    Column {
-        Text(text = label, color = PleosTextSecondary, fontSize = 13.sp)
-        Spacer(Modifier.height(6.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = TextStyle(color = PleosTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold),
-            cursorBrush = SolidColor(PleosNavy),
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            decorationBox = { inner ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(FieldBg)
-                        .padding(horizontal = 14.dp, vertical = 14.dp),
-                ) {
-                    if (value.isEmpty()) Text(text = placeholder, color = PlaceholderColor, fontSize = 18.sp)
-                    inner()
-                }
-            },
+private fun DimensionRow(field: ManualField, value: String, selected: Boolean, onIntent: (LoadCheckIntent) -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(74.dp)
+            .clip(shape)
+            .background(if (selected) RowSelectedBg else RowBg)
+            .border(if (selected) 1.5.dp else 1.dp, if (selected) RowSelectedBorder else RowBorder, shape)
+            .clickable { onIntent(LoadCheckIntent.SelectField(field)) }
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "${field.label} (cm)",
+            color = PleosTextPrimary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 10.dp),
         )
+        KeyButton(text = "−", width = 58.dp, height = 56.dp, tinted = false) { onIntent(LoadCheckIntent.StepField(field, -1)) }
+        Text(
+            text = value.ifEmpty { "0" },
+            color = PleosTextPrimary,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(120.dp),
+        )
+        KeyButton(text = "+", width = 58.dp, height = 56.dp, tinted = true) { onIntent(LoadCheckIntent.StepField(field, 1)) }
+    }
+}
+
+/** 숫자판: 1~9, 지우기, 0, ⌫ */
+@Composable
+private fun Keypad(onIntent: (LoadCheckIntent) -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(KeypadBg)
+            .border(1.dp, RowBorder, shape)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(text = "숫자판", color = PleosTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        listOf(listOf(1, 2, 3), listOf(4, 5, 6), listOf(7, 8, 9)).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                row.forEach { d ->
+                    KeyButton(text = "$d", modifier = Modifier.weight(1f)) { onIntent(LoadCheckIntent.KeypadDigit(d)) }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            KeyButton(text = "지우기", tinted = true, fontSize = 18.sp, modifier = Modifier.weight(1f)) { onIntent(LoadCheckIntent.KeypadClear) }
+            KeyButton(text = "0", modifier = Modifier.weight(1f)) { onIntent(LoadCheckIntent.KeypadDigit(0)) }
+            KeyButton(text = "⌫", tinted = true, modifier = Modifier.weight(1f)) { onIntent(LoadCheckIntent.KeypadBackspace) }
+        }
+    }
+}
+
+/** 숫자판·−/+ 버튼: 흰(또는 연한 파랑) 그라데이션 + 살짝 그림자 */
+@Composable
+private fun KeyButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    width: Dp? = null,
+    height: Dp = 64.dp,
+    tinted: Boolean = false,
+    fontSize: androidx.compose.ui.unit.TextUnit = 28.sp,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = modifier
+            .then(if (width != null) Modifier.width(width) else Modifier)
+            .height(height)
+            .shadow(2.dp, shape, ambientColor = ShadowColor, spotColor = ShadowColor)
+            .clip(shape)
+            .background(Brush.verticalGradient(if (tinted) listOf(StepTop, StepBottom) else listOf(Color.White, KeyBottom)))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text = text, color = if (tinted) PleosNavy else PleosTextPrimary, fontSize = fontSize, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun DialogButton(text: String, primary: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
-            .height(56.dp)
+            .height(76.dp)
             .alpha(if (enabled) 1f else 0.45f)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (primary) PleosNavy else FieldBg)
+            .shadow(4.dp, shape, ambientColor = ShadowColor, spotColor = ShadowColor)
+            .clip(shape)
+            .background(
+                if (primary) Brush.verticalGradient(listOf(EnabledTop, EnabledBottom)) else Brush.verticalGradient(listOf(Color.White, KeyBottom)),
+            )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = text, color = if (primary) Color.White else PleosTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(text = text, color = if (primary) Color.White else PleosNavy, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
+private val RowBg = Color(0xFFF6F8FC)
+private val RowBorder = Color(0xFFE2E8F2)
+private val RowSelectedBg = Color(0xFFEAF2FE)
+private val RowSelectedBorder = Color(0xFF6F9CE0)
+private val KeypadBg = Color(0xFFF1F5FB)
+private val KeyBottom = Color(0xFFF2F5FA)
 private val ShadowColor = Color(0x331B2B4B)
 private val VoiceTop = Color(0xFF2A4A72)
 private val VoiceBottom = Color(0xFF1A3352)
@@ -551,8 +622,6 @@ private val EnabledBottom = Color(0xFF14305A)
 private val DisabledTop = Color(0xFFE8EDF4)
 private val DisabledBottom = Color(0xFFDDE3EC)
 private val DisabledText = Color(0xFF7D879A)
-private val FieldBg = Color(0xFFF1F4F9)
-private val PlaceholderColor = Color(0xFFB2B9C6)
 
 @Preview(widthDp = 1280, heightDp = 800, showBackground = true, backgroundColor = 0xFFEFF2F8)
 @Composable

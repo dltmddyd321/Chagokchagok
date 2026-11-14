@@ -31,22 +31,22 @@ class LoadCheckViewModel : ViewModel() {
                 if (it.canAddItem) it.copy(manualInput = ManualInputState(name = intent.name.take(MAX_NAME_LENGTH))) else it
             }
             LoadCheckIntent.CloseManualInput -> _state.update { it.copy(manualInput = null) }
-            is LoadCheckIntent.ManualChanged -> updateManual {
-                when (intent.field) {
-                    ManualField.NAME -> it.copy(name = intent.value.take(MAX_NAME_LENGTH))
-                    ManualField.WIDTH -> it.copy(width = intent.value.digits())
-                    ManualField.DEPTH -> it.copy(depth = intent.value.digits())
-                    ManualField.HEIGHT -> it.copy(height = intent.value.digits())
-                }
+            is LoadCheckIntent.SelectField -> updateManual { it.copy(selected = intent.field) }
+            is LoadCheckIntent.StepField -> updateManual {
+                val current = it.valueOf(intent.field).toIntOrNull() ?: 0
+                val next = (current + intent.delta).coerceIn(0, LoadCheckUiState.MAX_CM)
+                it.with(intent.field, if (next == 0) "" else next.toString()).copy(selected = intent.field)
             }
-            is LoadCheckIntent.ManualQuantity -> _state.update { s ->
-                val input = s.manualInput ?: return@update s
-                // 남은 자리(최대 10개)를 넘지 않게
-                val room = LoadCheckUiState.MAX_ITEMS - s.itemCount
-                s.copy(manualInput = input.copy(quantity = (input.quantity + intent.delta).coerceIn(1, room.coerceAtLeast(1))))
+            is LoadCheckIntent.KeypadDigit -> updateManual {
+                val current = it.valueOf(it.selected)
+                val next = (current + intent.digit).trimStart('0')
+                // 최대 3자리, 300cm 이하
+                if (next.length > 3 || (next.toIntOrNull() ?: 0) > LoadCheckUiState.MAX_CM) it else it.with(it.selected, next)
             }
+            LoadCheckIntent.KeypadClear -> updateManual { it.with(it.selected, "") }
+            LoadCheckIntent.KeypadBackspace -> updateManual { it.with(it.selected, it.valueOf(it.selected).dropLast(1)) }
             LoadCheckIntent.ConfirmManualInput -> _state.update { s ->
-                val item = s.manualInput?.toItem("manual-${UUID.randomUUID()}") ?: return@update s
+                val item = s.manualInput?.toItem("manual-${UUID.randomUUID()}", "짐 ${s.items.size + 1}") ?: return@update s
                 if (s.itemCount + item.quantity > LoadCheckUiState.MAX_ITEMS) return@update s
                 s.copy(items = s.items + item, manualInput = null)
             }
@@ -61,8 +61,6 @@ class LoadCheckViewModel : ViewModel() {
     private fun updateManual(transform: (ManualInputState) -> ManualInputState) {
         _state.update { s -> s.manualInput?.let { s.copy(manualInput = transform(it)) } ?: s }
     }
-
-    private fun String.digits() = filter(Char::isDigit).take(3)
 
     private companion object {
         const val MAX_NAME_LENGTH = 20

@@ -111,7 +111,7 @@ fun PleosMainScreen() {
                             onOpenPlans = { tab = PleosTab.PLANS },
                             // TODO: 공유 코드 입력 화면 시안 나오면 연결
                             onEnterShareCode = {},
-                            // 진입점 미정: 임시로 "이 짐, 다 실릴까?" 카드에서 짐과 탑승 인원 화면으로
+                            // "이 짐, 다 실릴까?" 배너 → 짐과 탑승 인원 확인
                             onCheckFit = { loadCheckId = System.currentTimeMillis() },
                             viewModel = homeViewModel,
                         )
