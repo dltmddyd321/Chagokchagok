@@ -52,6 +52,7 @@ import com.windrr.hyundae.speech.SpeechInputScreen
 import com.windrr.hyundae.ui.home.HomeIntent
 import com.windrr.hyundae.ui.home.HomeRoute
 import com.windrr.hyundae.ui.home.HomeViewModel
+import com.windrr.hyundae.ui.loadcheck.LoadCheckRoute
 
 /** 왼쪽 사이드 메뉴 */
 enum class PleosTab(val label: String, @DrawableRes val iconRes: Int) {
@@ -64,6 +65,8 @@ enum class PleosTab(val label: String, @DrawableRes val iconRes: Int) {
 @Composable
 fun PleosMainScreen() {
     var tab by rememberSaveable { mutableStateOf(PleosTab.HOME) }
+    // 짐과 탑승 인원 화면 (null = 홈). 들어올 때마다 새 값 → 입력 초기화
+    var loadCheckId by rememberSaveable { mutableStateOf<Long?>(null) }
     val homeViewModel: HomeViewModel = viewModel()
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
 
@@ -76,26 +79,48 @@ fun PleosMainScreen() {
     ) {
         NavRail(
             selected = tab,
-            onSelect = { tab = it },
+            onSelect = {
+                tab = it
+                loadCheckId = null
+            },
             vehicleDesc = homeState.vehicleDesc,
             modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 20.dp),
         )
-        Box(
+        Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight(),
         ) {
-            when (tab) {
-                PleosTab.HOME -> HomeRoute(
-                    onOpenPlans = { tab = PleosTab.PLANS },
-                    // TODO: 공유 코드 입력 화면 시안 나오면 연결
-                    onEnterShareCode = {},
-                    // TODO: 차량에서 짐 적재 확인 흐름 시안 나오면 연결
-                    onCheckFit = {},
-                    viewModel = homeViewModel,
-                )
-                PleosTab.PLANS -> ComingSoon("내 계획 (준비 중)")
-                PleosTab.QUICK -> SpeechInputScreen(modifier = Modifier.fillMaxSize())
+            // 모든 화면 공통: 오른쪽 위 차량 상태 (Vehicle SDK 기어·트렁크)
+            VehicleStatusBar(
+                gearLabel = homeState.gearLabel,
+                trunkLabel = homeState.trunkLabel,
+                modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 12.dp),
+            )
+            Box(modifier = Modifier.weight(1f)) {
+                when (tab) {
+                    PleosTab.HOME -> if (loadCheckId != null) {
+                        LoadCheckRoute(
+                            onBack = { loadCheckId = null },
+                            // TODO: 음성으로 제품 사이즈 찾기 (STT + 제품 치수 검색) 연결
+                            onVoiceSearch = {},
+                            // TODO: 서버 배치 계산 → 적재 결과 화면 연결
+                            onRequestCheck = { _, _ -> },
+                            viewModel = viewModel(key = "load-check-$loadCheckId"),
+                        )
+                    } else {
+                        HomeRoute(
+                            onOpenPlans = { tab = PleosTab.PLANS },
+                            // TODO: 공유 코드 입력 화면 시안 나오면 연결
+                            onEnterShareCode = {},
+                            // 진입점 미정: 임시로 "이 짐, 다 실릴까?" 카드에서 짐과 탑승 인원 화면으로
+                            onCheckFit = { loadCheckId = System.currentTimeMillis() },
+                            viewModel = homeViewModel,
+                        )
+                    }
+                    PleosTab.PLANS -> ComingSoon("내 계획 (준비 중)")
+                    PleosTab.QUICK -> SpeechInputScreen(modifier = Modifier.fillMaxSize())
+                }
             }
         }
     }

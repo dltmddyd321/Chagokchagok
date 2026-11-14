@@ -71,10 +71,8 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 28.dp, end = 28.dp, top = 8.dp, bottom = 28.dp),
+            .padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 28.dp),
     ) {
-        VehicleStatusBar(gearLabel = state.gearLabel, trunkLabel = state.trunkLabel)
-        Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -126,41 +124,6 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .weight(1.1f),
                 )
-            }
-        }
-    }
-}
-
-/** 오른쪽 위: "P · 주차 중"  [트렁크 닫힘] — 차량 신호가 없으면 숨김 */
-@Composable
-private fun VehicleStatusBar(gearLabel: String?, trunkLabel: String?) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        gearLabel?.let {
-            Text(text = it, color = PleosTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.width(24.dp))
-        }
-        trunkLabel?.let {
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(ChipBg)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_car_outline),
-                    contentDescription = null,
-                    tint = PleosTextPrimary,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(text = it, color = PleosTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -417,7 +380,6 @@ private fun CheckFitCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
 internal val PleosNavy = Color(0xFF16305A)
 internal val PleosTextPrimary = Color(0xFF111A2E)
 internal val PleosTextSecondary = Color(0xFF5A6273)
-private val ChipBg = Color(0xFFE6EBF3)
 private val DividerColor = Color(0xFFE1E5EC)
 private val ShadowColor = Color(0x331B2B4B)
 private val BannerShadeTop = Color(0xCC0F2140)
