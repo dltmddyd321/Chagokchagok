@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withPermit
  * 서버 계획(짐 목록 포함)을 기기 DB에 미리 받아 둔다.
  * 주행 중 통신이 끊겨도 도착 알림·적재 확인이 기기 DB만으로 동작하게 하려는 것.
  *
- * - 목록(GET /plans)으로 최근 계획을 받고, 계획마다 상세(GET /plans/{id})로 짐 크기까지 받는다.
+ * - 주행 중 서비스라 가장 최근 계획 하나만 받는다. 목록(GET /plans?limit=1)으로 최신 계획을 받고, 계획마다 상세(GET /plans/{id})로 짐 크기까지 받는다.
  * - 내용이 같으면 건너뛴다. 서버에 없는 기기 계획은 지우지 않는다.
  */
 class PlanSyncRepository(
@@ -63,7 +63,8 @@ class PlanSyncRepository(
 
     private companion object {
         const val TAG = "PlanSync"
-        const val SYNC_LIMIT = 20
+        /** Pleos는 최신 계획 하나만 쓴다 */
+        const val SYNC_LIMIT = 1
         const val DETAIL_PARALLELISM = 4
     }
 }

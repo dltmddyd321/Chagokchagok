@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,8 +100,8 @@ fun HomeScreen(
                 .weight(1f),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            SavedPlansCard(
-                planCount = state.planCount,
+            LatestPlanCard(
+                plan = state.latestPlan,
                 onOpenPlans = onOpenPlans,
                 modifier = Modifier
                     .weight(1.37f)
@@ -207,63 +208,127 @@ private fun WeatherType.iconRes(): Int = when (this) {
     WeatherType.THUNDER -> R.drawable.ic_weather_thunder
 }
 
-/** 왼쪽 큰 카드: 트렁크 열린 아반떼 배경 + 저장한 배치 계획 + 내 계획보기 */
+/**
+ * 왼쪽 큰 카드: 최신 계획 (호숫가 투싼 배경).
+ * 카테고리 칩 · 계획 이름 · 안내 + 아래 유리 패널에 탑승 인원 / 가져갈 짐. 누르면 내 계획.
+ * 계획이 없으면 모바일에서 저장하라는 안내.
+ */
 @Composable
-private fun SavedPlansCard(planCount: Int, onOpenPlans: () -> Unit, modifier: Modifier = Modifier) {
+private fun LatestPlanCard(plan: LatestPlanUi?, onOpenPlans: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = modifier
             .shadow(10.dp, shape, ambientColor = ShadowColor, spotColor = ShadowColor)
-            .clip(shape),
+            .clip(shape)
+            .clickable(onClick = onOpenPlans),
     ) {
         Image(
-            painter = painterResource(R.drawable.img_banner_avante_coastal),
+            painter = painterResource(R.drawable.img_banner_weekend_outing_lakeside),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            alignment = Alignment.BottomCenter,
+            alignment = Alignment.Center,
             modifier = Modifier.matchParentSize(),
         )
-        // 위쪽 글씨가 잘 보이도록 어둡게
+        // 위 글씨·아래 패널이 잘 보이도록 위아래를 남색으로
         Box(
             Modifier
                 .matchParentSize()
-                .background(Brush.verticalGradient(listOf(BannerShadeTop, Color.Transparent))),
+                .background(Brush.verticalGradient(listOf(BannerShadeTop, Color.Transparent, Color.Transparent, BannerShadeBottom))),
+        )
+        Icon(
+            painter = painterResource(R.drawable.ic_arrow_forward),
+            contentDescription = "내 계획 보기",
+            tint = Color.White.copy(alpha = 0.85f),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 32.dp, end = 32.dp)
+                .size(40.dp),
         )
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(32.dp),
         ) {
-            Text(text = "차곡차곡", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(20.dp))
-            Text(
-                text = if (planCount > 0) "저장한 배치 계획이\n${planCount}개 있어요" else "저장한 배치 계획이\n없습니다",
-                color = Color.White,
-                fontSize = 34.sp,
-                lineHeight = 44.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "모바일에서 저장한 계획을\n차량에서 확인할 수 있습니다",
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
-            )
-            Spacer(Modifier.weight(1f))
-            // 반투명 유리 버튼
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.18f))
-                    .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                    .clickable(onClick = onOpenPlans),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "내 계획보기", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            if (plan != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(percent = 50))
+                        .background(CategoryChipBg)
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                ) {
+                    Text(text = plan.categoryLabel, color = PleosNavy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(22.dp))
+                Text(
+                    text = plan.name,
+                    color = Color.White,
+                    fontSize = 44.sp,
+                    lineHeight = 52.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(text = "함께 타는 사람과 가져갈 짐을 확인하세요", color = Color.White.copy(alpha = 0.85f), fontSize = 16.sp)
+                Spacer(Modifier.weight(1f))
+                PlanSummaryPanel(plan)
+            } else {
+                Text(
+                    text = "저장한 배치 계획이\n없어요",
+                    color = Color.White,
+                    fontSize = 34.sp,
+                    lineHeight = 44.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "모바일에서 계획을 저장하면\n차량에서 바로 확인할 수 있어요",
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                )
             }
+        }
+    }
+}
+
+/** 최신 계획 카드 아래 유리 패널: 탑승 인원 | 가져갈 짐 */
+@Composable
+private fun PlanSummaryPanel(plan: LatestPlanUi) {
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White.copy(alpha = 0.78f))
+            .border(1.dp, Color.White.copy(alpha = 0.6f), shape)
+            .padding(horizontal = 28.dp, vertical = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column {
+            Text(text = "탑승 인원", color = PleosTextSecondary, fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(text = "총 ${plan.passengerCount}명", color = PleosTextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+        }
+        Spacer(Modifier.width(28.dp))
+        Box(
+            Modifier
+                .width(1.dp)
+                .height(52.dp)
+                .background(PanelDivider),
+        )
+        Spacer(Modifier.width(28.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "가져갈 짐", color = PleosTextSecondary, fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = plan.itemsLine,
+                color = PleosTextPrimary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -376,7 +441,10 @@ internal val PleosTextPrimary = Color(0xFF111A2E)
 internal val PleosTextSecondary = Color(0xFF5A6273)
 private val DividerColor = Color(0xFFE1E5EC)
 private val ShadowColor = Color(0x331B2B4B)
-private val BannerShadeTop = Color(0xCC0F2140)
+private val BannerShadeTop = Color(0xE60F2140)
+private val BannerShadeBottom = Color(0xF00B1A36)
+private val CategoryChipBg = Color(0xFFDCE6F7)
+private val PanelDivider = Color(0xFFB7C0CF)
 private val CheckFitTint = Color(0xFFE3EBF8)
 private val ArrowColor = Color(0xFF9AB0D0)
 
@@ -388,6 +456,7 @@ private fun HomeScreenPreview() {
             vehicleDesc = "5인승 SUV",
             weather = WeatherInfo("성동구", "흐림", WeatherType.CLOUDY, 18),
             weatherLoading = false,
+            latestPlan = LatestPlanUi("p1", "여행", "주말 나들이", 3, "유모차 1개 · 캐리어 1개 외 3개"),
             gear = ai.pleos.playground.vehicle.constant.control.VehicleGear.GEAR_PARK,
             trunkOpen = false,
         ),

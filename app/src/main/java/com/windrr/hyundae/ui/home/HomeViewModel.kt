@@ -24,7 +24,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            db.planDao().observePlans().collect { plans -> _state.update { it.copy(planCount = plans.size) } }
+            db.planDao().observePlans().collect { plans ->
+                // 최근 등록 순이라 첫 번째가 최신 계획
+                _state.update { it.copy(planCount = plans.size, latestPlan = plans.firstOrNull()?.let(LatestPlanUi::from)) }
+            }
         }
         viewModelScope.launch {
             db.vehicleDao().observeMain().collect { car -> _state.update { it.copy(vehicleDesc = car?.desc.orEmpty()) } }
