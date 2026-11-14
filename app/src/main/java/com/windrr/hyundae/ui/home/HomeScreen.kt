@@ -141,7 +141,7 @@ private fun WeatherCard(weather: WeatherInfo?, loading: Boolean, onClick: () -> 
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        WeatherIcon(type = weather?.conditionType ?: WeatherType.CLOUDY, modifier = Modifier.size(width = 52.dp, height = 40.dp))
+        WeatherIcon(type = weather?.conditionType ?: WeatherType.CLOUDY, modifier = Modifier.size(width = 50.dp, height = 46.dp))
         Spacer(Modifier.width(14.dp))
         Column {
             Text(
@@ -185,32 +185,26 @@ private fun WeatherCard(weather: WeatherInfo?, loading: Boolean, onClick: () -> 
     }
 }
 
-/** 임시 날씨 아이콘 (구름·해·비) — 아이콘 에셋 받으면 교체 */
+/** 날씨 아이콘 (디자인 리소스 7종, 77×70 비율) */
 @Composable
 private fun WeatherIcon(type: WeatherType, modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        if (type == WeatherType.CLEAR || type == WeatherType.PARTLY_CLOUDY) {
-            drawCircle(SunColor, radius = h * 0.28f, center = Offset(w * 0.68f, h * 0.32f))
-        }
-        if (type != WeatherType.CLEAR) {
-            val cloud = Brush.verticalGradient(listOf(Color.White, CloudShade))
-            drawCircle(cloud, radius = h * 0.26f, center = Offset(w * 0.38f, h * 0.52f))
-            drawCircle(cloud, radius = h * 0.33f, center = Offset(w * 0.58f, h * 0.42f))
-            drawRoundRect(
-                cloud,
-                topLeft = Offset(w * 0.12f, h * 0.5f),
-                size = androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.3f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * 0.15f),
-            )
-        }
-        if (type == WeatherType.RAIN || type == WeatherType.THUNDER) {
-            listOf(0.3f, 0.5f, 0.7f).forEach { x ->
-                drawLine(RainColor, Offset(w * x, h * 0.86f), Offset(w * x - 3f, h), strokeWidth = 3f)
-            }
-        }
-    }
+    Image(
+        painter = painterResource(type.iconRes()),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = modifier,
+    )
+}
+
+/** WMO 코드 묶음(WeatherType) → 아이콘. 묶는 기준은 WeatherRepository.describe 참고 */
+private fun WeatherType.iconRes(): Int = when (this) {
+    WeatherType.CLEAR -> R.drawable.ic_weather_clear
+    WeatherType.PARTLY_CLOUDY -> R.drawable.ic_weather_partly_cloudy
+    WeatherType.CLOUDY -> R.drawable.ic_weather_cloudy
+    WeatherType.FOG -> R.drawable.ic_weather_fog
+    WeatherType.RAIN -> R.drawable.ic_weather_rain
+    WeatherType.SNOW -> R.drawable.ic_weather_snow
+    WeatherType.THUNDER -> R.drawable.ic_weather_thunder
 }
 
 /** 왼쪽 큰 카드: 트렁크 열린 아반떼 배경 + 저장한 배치 계획 + 내 계획보기 */
@@ -385,9 +379,6 @@ private val ShadowColor = Color(0x331B2B4B)
 private val BannerShadeTop = Color(0xCC0F2140)
 private val CheckFitTint = Color(0xFFE3EBF8)
 private val ArrowColor = Color(0xFF9AB0D0)
-private val SunColor = Color(0xFFFFC94D)
-private val CloudShade = Color(0xFFC9D6EA)
-private val RainColor = Color(0xFF6E9BE0)
 
 @Preview(widthDp = 1280, heightDp = 800, showBackground = true, backgroundColor = 0xFFEFF2F8)
 @Composable
