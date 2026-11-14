@@ -75,21 +75,32 @@ import kotlin.math.roundToInt
 fun LoadResultRoute(
     input: LoadResultInput,
     onClose: () -> Unit,
-    /** 이 조건으로 진행 (고른 추천 방법) */
-    onProceed: (ArrangementOptionUi) -> Unit,
+    /** 적재 가이드에서 "짐을 다 실었어요" */
+    onFinished: () -> Unit,
     viewModel: LoadResultViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.start(input) }
-    BackHandler(onBack = onClose)
-    LoadResultScreen(
-        state = state,
-        items = input.items,
-        onSelect = viewModel::select,
-        onRetry = viewModel::retry,
-        onClose = onClose,
-        onProceed = onProceed,
-    )
+    val result = state as? LoadResultState.Result
+    // 가이드 화면에서 뒤로 → 결과 화면, 결과 화면에서 뒤로 → 짐과 탑승 인원
+    BackHandler { if (result?.proceeding == true) viewModel.backToResult() else onClose() }
+    if (result != null && result.proceeding && result.selected != null) {
+        LoadGuideScreen(
+            option = result.selected!!,
+            steps = result.selectedGuide,
+            onChangeCondition = viewModel::backToResult,
+            onFinished = onFinished,
+        )
+    } else {
+        LoadResultScreen(
+            state = state,
+            items = input.items,
+            onSelect = viewModel::select,
+            onRetry = viewModel::retry,
+            onClose = onClose,
+            onProceed = { viewModel.proceed() },
+        )
+    }
 }
 
 @Composable
@@ -315,6 +326,145 @@ private fun BottomButton(text: String, primary: Boolean, enabled: Boolean, modif
     }
 }
 
+/**
+ * 적재 가이드 (시안): 왼쪽 "OO를 안내대로 실어 주세요" + 단계 카드(서버 안내가 오면), 오른쪽 선택한 적재 배치.
+ * 안내가 아직 오지 않았으면 카드 자리에 "가이드를 만들고 있어요".
+ */
+@Composable
+fun LoadGuideScreen(
+    option: ArrangementOptionUi,
+    steps: List<GuideStepUi>?,
+    onChangeCondition: () -> Unit,
+    onFinished: () -> Unit,
+) {
+    val names = Josa.joinNames(option.layout.items.map { it.name }.distinct())
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(0.42f)
+                .fillMaxHeight(),
+        ) {
+            Text(text = "적재 진행  /  적재 가이드", color = PleosTextSecondary, fontSize = 13.sp)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "$names${Josa.을를(names)}\n안내대로 실어 주세요",
+                color = PleosTextPrimary,
+                fontSize = 34.sp,
+                lineHeight = 46.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(text = option.subtitle, color = PleosTextSecondary, fontSize = 16.sp)
+            Spacer(Modifier.height(24.dp))
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                GuideStepsCard(steps)
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                BottomButton(text = "조건 변경", primary = false, enabled = true, modifier = Modifier.weight(0.42f), onClick = onChangeCondition)
+                BottomButton(text = "✓  짐을 다 실었어요", primary = true, enabled = true, modifier = Modifier.weight(0.58f), onClick = onFinished)
+            }
+        }
+
+        // 오른쪽: 선택한 적재 배치
+        val shape = RoundedCornerShape(28.dp)
+        Column(
+            modifier = Modifier
+                .weight(0.58f)
+                .fillMaxHeight()
+                .clip(shape)
+                .background(PanelBg)
+                .padding(horizontal = 32.dp, vertical = 28.dp),
+        ) {
+            Text(text = "선택한 적재 배치", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(20.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(PanelDivider),
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                TopView(layout = option.layout, dimmed = false)
+            }
+        }
+    }
+}
+
+/** 적재 단계 카드: ① 제목 / 설명, 구분선 */
+@Composable
+private fun GuideStepsCard(steps: List<GuideStepUi>?) {
+    val shape = RoundedCornerShape(24.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, CardBorder, shape)
+            .padding(horizontal = 32.dp, vertical = 16.dp),
+    ) {
+        if (steps == null) {
+            // 안내를 아직 받는 중
+            Row(
+                modifier = Modifier.padding(vertical = 40.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(color = RadioBlue, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(16.dp))
+                Text(text = "가이드를 만들고 있어요", color = PleosTextSecondary, fontSize = 18.sp)
+            }
+            return@Column
+        }
+        steps.forEachIndexed { index, step ->
+            if (index > 0) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(CardBorder),
+                )
+            }
+            Row(modifier = Modifier.padding(vertical = 24.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(StepBadgeBg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "${step.number}", color = StepBadgeText, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(18.dp))
+                Column {
+                    Text(text = step.title, color = PleosTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                    step.body?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(text = it, color = PleosTextSecondary, fontSize = 17.sp, lineHeight = 24.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** 오른쪽 남색 패널: "배치 결과" + 투싼 탑뷰 */
 @Composable
 private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
@@ -509,3 +659,5 @@ private val ItemStroke = Color(0xFF45D3C7)
 private val ArrowTeal = Color(0xFF45D3C7)
 private val BadgeBg = Color(0xFFDDF5EC)
 private val BadgeText = Color(0xFF1F8A6E)
+private val StepBadgeBg = Color(0xFFE6EEFB)
+private val StepBadgeText = Color(0xFF2E5FA8)

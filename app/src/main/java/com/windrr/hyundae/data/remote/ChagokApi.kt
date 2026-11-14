@@ -7,6 +7,8 @@ import com.windrr.hyundae.data.remote.model.CargoReminderResponse
 import com.windrr.hyundae.data.remote.model.PlanCreateRequest
 import com.windrr.hyundae.data.remote.model.PlanListResponse
 import com.windrr.hyundae.data.remote.model.PlanResponse
+import com.windrr.hyundae.data.remote.model.LoadingGuideRequest
+import com.windrr.hyundae.data.remote.model.LoadingGuideResponse
 import com.windrr.hyundae.data.remote.model.PlanSort
 import com.windrr.hyundae.data.remote.model.PreviewRequest
 import com.windrr.hyundae.data.remote.model.PreviewResponse
@@ -56,6 +58,13 @@ interface ChagokApi {
         @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
         @Body request: PreviewRequest,
     ): Response<ApiResponse<PreviewResponse>>
+
+    /** 고른 배치의 적재 안내 문구 (서버 AI). 배치 계산보다 오래 걸릴 수 있다 */
+    @POST("api/v1/ai/loading-guides")
+    suspend fun loadingGuide(
+        @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
+        @Body request: LoadingGuideRequest,
+    ): Response<ApiResponse<LoadingGuideResponse>>
 
     /** 제품명으로 규격 후보 찾기 (서버가 외부 웹 검색 + AI 정리). 검색할 때마다 새 Idempotency-Key */
     @POST("api/v1/products/search")

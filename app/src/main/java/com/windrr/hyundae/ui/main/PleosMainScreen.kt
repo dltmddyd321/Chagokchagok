@@ -111,8 +111,11 @@ fun PleosMainScreen() {
                             input = input,
                             // 닫기 → 짐과 탑승 인원 화면 (입력값 그대로)
                             onClose = { loadResult = null },
-                            // TODO: "이 조건으로 진행" 다음 화면 시안 나오면 연결
-                            onProceed = {},
+                            // 적재 가이드에서 짐을 다 실었으면 홈으로
+                            onFinished = {
+                                loadResult = null
+                                loadCheckId = null
+                            },
                             viewModel = viewModel(key = "load-result-$resultId"),
                         )
                     } else if (loadCheckId != null) {

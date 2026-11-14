@@ -53,7 +53,13 @@ sealed interface LoadResultState {
         val options: List<ArrangementOptionUi>,
         /** 처음엔 미선택 (사용자가 추천 방법을 고르면 탑뷰에 그린다) */
         val selectedIndex: Int? = null,
+        /** 배치안별 적재 안내 (arrangement_id → 단계, null = 받는 중). 적재 가능이면 결과가 나오자마자 받기 시작 */
+        val guides: Map<String, List<GuideStepUi>?> = emptyMap(),
+        /** 이 조건으로 진행 → 적재 가이드 화면 */
+        val proceeding: Boolean = false,
     ) : LoadResultState {
+        val selectedGuide: List<GuideStepUi>? get() = selected?.let { guides[it.layout.arrangementId] }
+
         val selected: ArrangementOptionUi? get() = selectedIndex?.let { options.getOrNull(it) }
     }
 
@@ -92,12 +98,24 @@ class LoadResultViewModel(
         if (s is LoadResultState.Result && index in s.options.indices) s.copy(selectedIndex = index) else s
     }
 
+    /** 이 조건으로 진행 → 적재 가이드 */
+    fun proceed() = _state.update { s ->
+        if (s is LoadResultState.Result && s.selected != null) s.copy(proceeding = true) else s
+    }
+
+    /** 가이드의 조건 변경 → 결과 화면 */
+    fun backToResult() = _state.update { s -> if (s is LoadResultState.Result) s.copy(proceeding = false) else s }
+
+    /** 가이드 화면을 보는 중이면 뒤로가기는 결과 화면으로 */
+    val isProceeding: Boolean get() = (_state.value as? LoadResultState.Result)?.proceeding == true
+
     private fun load() {
         val current = input ?: return
         _state.value = LoadResultState.Loading
         viewModelScope.launch {
+            var previewId = ""
             val first = when (val result = remote.previewCalculation(buildRequest(current), idempotencyKey)) {
-                is ApiResult.Success -> result.data.calculation
+                is ApiResult.Success -> result.data.calculation.also { previewId = result.data.previewId }
                 is ApiResult.Failure -> {
                     // 서버가 요청을 거절(4xx)했으면 같은 키로 다시 보내도 결과가 같다 → 새 키
                     if (result.httpCode in 400..499) idempotencyKey = UUID.randomUUID().toString()
@@ -107,13 +125,36 @@ class LoadResultViewModel(
             }
             if (first.isSuccess && first.resultCode == RESULT_LAYOUT_FOUND && !first.arrangements.isNullOrEmpty()) {
                 val options = first.arrangements.orEmpty().sortedBy { it.rank }.take(MAX_OPTIONS).map { option(it, first, current.passengerCount) }
-                _state.value = LoadResultState.Result(possible = true, options = options)
+                _state.value = LoadResultState.Result(
+                    possible = true,
+                    options = options,
+                    guides = options.associate { it.layout.arrangementId to null },
+                )
+                // 적재 가능이면 사용자가 진행을 누르기 전에 배치안마다 적재 안내를 미리 받아 둔다
+                options.forEach { loadGuide(previewId, it.layout) }
                 return@launch
             }
             Log.i(TAG, "적재 불가 ${first.resultCode}, 짐 빼기 대안 ${first.alternatives?.size ?: 0}개")
             // 불가능일 때 추천 방법 = 서버가 같이 준 짐 빼기 대안
             val options = first.alternatives.orEmpty().sortedBy { it.rank }.take(MAX_OPTIONS).map { option(it, first, current.passengerCount) }
             _state.value = LoadResultState.Result(possible = false, options = options)
+        }
+    }
+
+    /** 적재 안내 하나. 서버가 단계를 비워 주거나 실패하면 시안 기본 문구로 */
+    private fun loadGuide(previewId: String, layout: ArrangementLayoutUi) {
+        viewModelScope.launch {
+            val guide = when (val result = remote.loadingGuide(previewId, layout.arrangementId)) {
+                is ApiResult.Success -> result.data
+                else -> {
+                    Log.w(TAG, "적재 안내 실패 ${layout.arrangementId}: $result")
+                    null
+                }
+            }
+            val steps = LoadingGuideBuilder.build(layout, guide)
+            _state.update { s ->
+                if (s is LoadResultState.Result && layout.arrangementId in s.guides) s.copy(guides = s.guides + (layout.arrangementId to steps)) else s
+            }
         }
     }
 
