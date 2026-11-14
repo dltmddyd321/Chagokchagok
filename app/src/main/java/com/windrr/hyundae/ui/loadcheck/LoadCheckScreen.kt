@@ -90,16 +90,32 @@ fun LoadCheckRoute(
         onIntent = viewModel::onIntent,
         onVoiceSearch = { voiceSession = System.currentTimeMillis() },
     )
+    // 검색 결과가 나오면 제품명 말하기 창을 닫고 "찾은 제품 규격" 창으로
+    val searchDone = state.productSearch is ProductSearchState.Found || state.productSearch is ProductSearchState.NotFound
+    LaunchedEffect(searchDone) { if (searchDone) voiceSession = null }
     voiceSession?.let { session ->
         ProductVoiceDialog(
-            onDismiss = { voiceSession = null },
-            onRecognized = { text ->
-                // TODO: 제품 규격 API(제품명 → 가로·세로·높이) 연결. 지금은 이름만 채워 치수 직접 입력 창으로
+            onDismiss = {
                 voiceSession = null
-                viewModel.onIntent(LoadCheckIntent.OpenManualInputWithName(text))
+                viewModel.onIntent(LoadCheckIntent.CloseProductSearch)
             },
+            // 말이 끝나면 제품 규격 검색. 검색하는 동안 이 창은 "제품 규격을 찾는 중..."으로 남아 있다
+            onRecognized = { text -> viewModel.onIntent(LoadCheckIntent.SearchProduct(text)) },
             viewModel = viewModel(key = "product-voice-$session"),
         )
+    }
+    if (searchDone) {
+        state.productSearch?.let { search ->
+            ProductResultDialog(
+                search = search,
+                canAddItem = state.canAddItem,
+                onIntent = viewModel::onIntent,
+                onSpeakAgain = {
+                    viewModel.onIntent(LoadCheckIntent.CloseProductSearch)
+                    voiceSession = System.currentTimeMillis()
+                },
+            )
+        }
     }
     state.manualInput?.let { input -> ManualInputDialog(input = input, onIntent = viewModel::onIntent) }
 }

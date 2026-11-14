@@ -52,6 +52,8 @@ data class LoadCheckUiState(
     val companions: Int = 0,
     /** 치수 직접 입력 창이 열려 있으면 그 입력값 */
     val manualInput: ManualInputState? = null,
+    /** 제품명 말하기 → 제품 규격 검색 상태 (null이면 창 닫힘) */
+    val productSearch: ProductSearchState? = null,
 ) {
     /** 운전자 포함 총 탑승 인원 */
     val totalPassengers: Int get() = 1 + companions
@@ -85,8 +87,23 @@ sealed interface LoadCheckIntent {
     /** 치수 직접 입력 창 */
     data object OpenManualInput : LoadCheckIntent
 
-    /** 음성으로 들은 제품명을 이름 칸에 채워 입력 창 열기 (제품 규격 API 연결 전 임시) */
+    /** 음성으로 들은 제품명을 이름 칸에 채워 입력 창 열기 */
     data class OpenManualInputWithName(val name: String) : LoadCheckIntent
+
+    /** 제품명 말하기 결과로 제품 규격 검색 (POST /products/search) */
+    data class SearchProduct(val query: String) : LoadCheckIntent
+
+    /** 후보가 여러 개(운반 상태별)일 때 고르기 */
+    data class SelectProductCandidate(val index: Int) : LoadCheckIntent
+
+    /** 이 짐 추가하기: 치수가 모두 있는 후보를 짐 목록에 */
+    data object AddProductCandidate : LoadCheckIntent
+
+    /** 치수가 빠진 후보·못 찾은 제품: 아는 값만 채워 직접 입력 창으로 */
+    data object EnterProductDimensions : LoadCheckIntent
+
+    /** 제품 규격 창 닫기 (다시 말하기 포함) */
+    data object CloseProductSearch : LoadCheckIntent
 
     data object CloseManualInput : LoadCheckIntent
 

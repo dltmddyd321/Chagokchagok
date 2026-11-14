@@ -1,7 +1,10 @@
 package com.windrr.hyundae.ui.loadcheck
 
 import androidx.lifecycle.ViewModel
+import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.windrr.hyundae.data.remote.ApiResult
+import com.windrr.hyundae.data.remote.ProductRemoteRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +14,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-class LoadCheckViewModel : ViewModel() {
+class LoadCheckViewModel(
+    private val productRemote: ProductRemoteRepository = ProductRemoteRepository(),
+) : ViewModel() {
 
     private val _state = MutableStateFlow(LoadCheckUiState())
     val state: StateFlow<LoadCheckUiState> = _state.asStateFlow()
@@ -50,6 +55,35 @@ class LoadCheckViewModel : ViewModel() {
                 if (s.itemCount + item.quantity > LoadCheckUiState.MAX_ITEMS) return@update s
                 s.copy(items = s.items + item, manualInput = null)
             }
+            is LoadCheckIntent.SearchProduct -> searchProduct(intent.query)
+            is LoadCheckIntent.SelectProductCandidate -> _state.update { s ->
+                val found = s.productSearch as? ProductSearchState.Found ?: return@update s
+                if (intent.index !in found.candidates.indices) s else s.copy(productSearch = found.copy(selectedIndex = intent.index))
+            }
+            LoadCheckIntent.AddProductCandidate -> _state.update { s ->
+                val candidate = (s.productSearch as? ProductSearchState.Found)?.selected ?: return@update s
+                val w = candidate.intCm(candidate.widthCm)
+                val d = candidate.intCm(candidate.depthCm)
+                val h = candidate.intCm(candidate.heightCm)
+                if (w == null || d == null || h == null || !s.canAddItem) return@update s
+                val item = LoadItem("product-${candidate.candidateId}", candidate.name.take(MAX_NAME_LENGTH), w, d, h)
+                s.copy(items = s.items + item, productSearch = null)
+            }
+            LoadCheckIntent.EnterProductDimensions -> _state.update { s ->
+                val search = s.productSearch ?: return@update s
+                if (!s.canAddItem) return@update s.copy(productSearch = null)
+                val candidate = (search as? ProductSearchState.Found)?.selected
+                val input = ManualInputState(
+                    name = (candidate?.name ?: search.query).take(MAX_NAME_LENGTH),
+                    width = candidate?.intCm(candidate.widthCm)?.toString().orEmpty(),
+                    depth = candidate?.intCm(candidate.depthCm)?.toString().orEmpty(),
+                    height = candidate?.intCm(candidate.heightCm)?.toString().orEmpty(),
+                )
+                // 비어 있는 첫 치수부터 입력하게
+                val firstEmpty = ManualField.entries.firstOrNull { input.valueOf(it).isEmpty() } ?: ManualField.WIDTH
+                s.copy(productSearch = null, manualInput = input.copy(selected = firstEmpty))
+            }
+            LoadCheckIntent.CloseProductSearch -> _state.update { it.copy(productSearch = null) }
             LoadCheckIntent.Check -> {
                 val s = _state.value
                 if (!s.canCheck) return
@@ -58,11 +92,42 @@ class LoadCheckViewModel : ViewModel() {
         }
     }
 
+    /** 새 검색마다 새 Idempotency-Key (저장소 기본값) */
+    private fun searchProduct(query: String) {
+        val text = query.trim()
+        if (text.isEmpty()) return
+        _state.update { it.copy(productSearch = ProductSearchState.Searching(text)) }
+        viewModelScope.launch {
+            val next = when (val result = productRemote.search(text)) {
+                is ApiResult.Success -> {
+                    val candidates = ProductCandidateUi.sort(result.data.candidates.orEmpty().map(ProductCandidateUi::from))
+                    if (candidates.isEmpty()) {
+                        ProductSearchState.NotFound(text, "제품 규격을 찾지 못했어요. 치수를 직접 입력해 주세요.")
+                    } else {
+                        ProductSearchState.Found(text, candidates)
+                    }
+                }
+                is ApiResult.Failure -> {
+                    Log.w(TAG, "제품 검색 실패: $result")
+                    // 503 PRODUCT_SEARCH_UNAVAILABLE 등은 서버 문구를 그대로 (차에서는 AR 대신 직접 입력)
+                    ProductSearchState.NotFound(text, result.message?.replace("AR 측정이나 ", "") ?: "제품 규격을 찾지 못했어요.")
+                }
+                is ApiResult.NetworkError -> {
+                    Log.w(TAG, "제품 검색 통신 오류", result.cause)
+                    ProductSearchState.NotFound(text, "네트워크 연결을 확인해 주세요. 치수를 직접 입력할 수도 있어요.")
+                }
+            }
+            // 그 사이 창을 닫았으면 결과를 띄우지 않는다
+            _state.update { if (it.productSearch == ProductSearchState.Searching(text)) it.copy(productSearch = next) else it }
+        }
+    }
+
     private fun updateManual(transform: (ManualInputState) -> ManualInputState) {
         _state.update { s -> s.manualInput?.let { s.copy(manualInput = transform(it)) } ?: s }
     }
 
     private companion object {
+        const val TAG = "LoadCheck"
         const val MAX_NAME_LENGTH = 20
     }
 }
