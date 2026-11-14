@@ -61,6 +61,22 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="길안내 중 목적지 도착과 주차(P단)를 감지해 실었던 짐을 챙기도록 알림" />
         </service>
+        <!-- FCM 수신 -->
+        <service
+            android:name=".push.ChagokMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 앱이 백그라운드일 때 시스템이 띄우는 notification 메시지의 기본 채널·아이콘 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="push_default" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_launcher_foreground" />
     </application>
 
 </manifest>
