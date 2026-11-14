@@ -5,12 +5,16 @@ import com.windrr.hyundae.data.remote.model.CalculationResponse
 import com.windrr.hyundae.data.remote.model.CargoReminderRequest
 import com.windrr.hyundae.data.remote.model.CargoReminderResponse
 import com.windrr.hyundae.data.remote.model.PlanCreateRequest
+import com.windrr.hyundae.data.remote.model.PlanListResponse
 import com.windrr.hyundae.data.remote.model.PlanResponse
+import com.windrr.hyundae.data.remote.model.PlanSort
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface ChagokApi {
 
@@ -26,6 +30,21 @@ interface ChagokApi {
         @Path("plan_id") planId: String,
         @Body request: CalculationRequest,
     ): Response<ApiResponse<CalculationResponse>>
+
+    /** 계획 목록 (짐은 이름·개수 요약만). sort latest|favorite */
+    @GET("api/v1/plans")
+    suspend fun getPlans(
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0,
+        @Query("sort") sort: String = PlanSort.LATEST.value,
+        @Query("q") query: String? = null,
+        @Query("category") category: String? = null,
+        @Query("favorite") favorite: Boolean? = null,
+    ): Response<ApiResponse<PlanListResponse>>
+
+    /** 계획 상세 (짐 크기까지) */
+    @GET("api/v1/plans/{plan_id}")
+    suspend fun getPlan(@Path("plan_id") planId: String): Response<ApiResponse<PlanResponse>>
 
     /** 도착·문 열림 시 폰으로 짐 챙기기 알림 요청. 서버가 등록된 폰들에 FCM 발송 */
     @POST("api/v1/plans/{plan_id}/cargo-reminders")

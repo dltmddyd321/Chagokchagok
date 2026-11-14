@@ -3,10 +3,19 @@ package com.windrr.hyundae.data.remote
 import com.windrr.hyundae.data.remote.model.CalculationRequest
 import com.windrr.hyundae.data.remote.model.CalculationResponse
 import com.windrr.hyundae.data.remote.model.PlanCreateRequest
+import com.windrr.hyundae.data.remote.model.PlanListResponse
 import com.windrr.hyundae.data.remote.model.PlanResponse
+import com.windrr.hyundae.data.remote.model.PlanSort
 import java.util.UUID
 
 class PlanRemoteRepository(private val api: ChagokApi = ApiClient.chagokApi) {
+
+    /** 최근 등록 순 계획 목록 */
+    suspend fun recentPlans(limit: Int = 20): ApiResult<PlanListResponse> =
+        apiCall { api.getPlans(limit = limit, sort = PlanSort.LATEST.value) }
+
+    /** 계획 상세 (짐 크기 포함) */
+    suspend fun plan(planId: String): ApiResult<PlanResponse> = apiCall { api.getPlan(planId) }
 
     suspend fun createPlan(
         request: PlanCreateRequest,

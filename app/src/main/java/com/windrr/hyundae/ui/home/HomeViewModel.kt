@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.windrr.hyundae.data.local.AppDatabase
+import com.windrr.hyundae.data.sync.PlanSyncRepository
 import com.windrr.hyundae.data.vehicle.VehicleStatusSource
 import com.windrr.hyundae.data.weather.WeatherRepository
 import kotlinx.coroutines.delay
@@ -18,6 +19,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getInstance(application)
     private val weatherRepository = WeatherRepository(application)
     private val vehicleStatus = VehicleStatusSource(application)
+    private val planSync = PlanSyncRepository(application)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -32,6 +34,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             vehicleStatus.status.collect { s -> _state.update { it.copy(gear = s.gear, trunkOpen = s.trunkOpen) } }
         }
+        // 서버 계획·짐 목록을 기기 DB에 미리 받아 둔다 (주행 중 통신이 끊겨도 도착 알림·적재 확인 가능)
+        viewModelScope.launch { planSync.syncRecentPlans() }
         // 날씨: 처음 한 번 + 1시간마다 자동 갱신 (주행 중 지역·날씨가 바뀌므로)
         viewModelScope.launch {
             while (true) {

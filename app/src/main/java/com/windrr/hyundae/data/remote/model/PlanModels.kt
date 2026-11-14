@@ -20,6 +20,11 @@ data class PlanItemRequest(
 
 data class PlanResponse(
     @SerializedName("plan_id") val planId: String,
+    @SerializedName("name") val name: String? = null,
+    /** TRAVEL / LEISURE / MOVING. null이면 앱은 여행으로 본다 */
+    @SerializedName("category") val category: String? = null,
+    @SerializedName("memo") val memo: String? = null,
+    @SerializedName("is_favorite") val isFavorite: Boolean? = null,
     @SerializedName("vehicle_id") val vehicleId: String?,
     @SerializedName("passenger_count") val passengerCount: Int?,
     @SerializedName("car_seats") val carSeats: List<String>?,
