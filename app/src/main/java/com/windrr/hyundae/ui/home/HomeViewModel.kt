@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.windrr.hyundae.data.local.AppDatabase
+import ai.pleos.playground.vehicle.constant.control.VehicleGear
+import com.windrr.hyundae.data.sync.PlanAutoSync
+import com.windrr.hyundae.data.vehicle.VehicleStatus
 import com.windrr.hyundae.data.vehicle.VehicleStatusSource
 import com.windrr.hyundae.data.weather.WeatherRepository
 import kotlinx.coroutines.delay
@@ -33,7 +36,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             db.vehicleDao().observeMain().collect { car -> _state.update { it.copy(vehicleDesc = car?.desc.orEmpty()) } }
         }
         viewModelScope.launch {
-            vehicleStatus.status.collect { s -> _state.update { it.copy(gear = s.gear, trunkOpen = s.trunkOpen) } }
+            var previous: VehicleStatus? = null
+            vehicleStatus.status.collect { s ->
+                _state.update { it.copy(gear = s.gear, trunkOpen = s.trunkOpen) }
+                syncOnVehicleSignal(previous, s)
+                previous = s
+            }
         }
         // 날씨: 처음 한 번 + 1시간마다 자동 갱신 (주행 중 지역·날씨가 바뀌므로)
         viewModelScope.launch {
@@ -42,6 +50,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 delay(WEATHER_REFRESH_MS)
             }
         }
+    }
+
+    /** 운전석 문이 열리거나(타는 중) 기어가 P에서 빠지면(출발 직전) 최신 계획을 다시 받는다 */
+    private fun syncOnVehicleSignal(previous: VehicleStatus?, current: VehicleStatus) {
+        val doorOpened = previous?.driverDoorOpen == false && current.driverDoorOpen == true
+        val leftPark = previous?.gear == VehicleGear.GEAR_PARK && current.gear != null && current.gear != VehicleGear.GEAR_PARK
+        val reason = when {
+            doorOpened -> "운전석 문 열림"
+            leftPark -> "P단 → 주행"
+            else -> return
+        }
+        viewModelScope.launch { PlanAutoSync.sync(getApplication(), reason) }
     }
 
     fun onIntent(intent: HomeIntent) {

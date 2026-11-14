@@ -20,16 +20,20 @@ data class VehicleStatus(
     val gear: VehicleGear? = null,
     /** null = 트렁크 신호 없음 */
     val trunkOpen: Boolean? = null,
+    /** null = 운전석 문 신호 없음. 열리면 사람이 타는 중 → 최신 계획 동기화 계기 */
+    val driverDoorOpen: Boolean? = null,
 )
 
-/** Pleos Vehicle SDK로 기어·트렁크(REAR 도어) 상태를 구독 */
+/** Pleos Vehicle SDK로 기어·트렁크(REAR)·운전석 문(ROW_1_LEFT) 상태를 구독 */
 class VehicleStatusSource(context: Context) {
 
     private val _status = MutableStateFlow(VehicleStatus())
     val status: StateFlow<VehicleStatus> = _status.asStateFlow()
 
     private var vehicle: Vehicle? = null
-    private var trunkArea: DoorArea? = null
+
+    /** 구독 중인 문 영역 → 리스너 (해제용) */
+    private val doorListeners = mutableMapOf<DoorArea, DoorPositionListener>()
 
     private val gearListener = object : GearSelectionListener {
         override fun onSelected(gear: VehicleGear?) {
@@ -41,51 +45,55 @@ class VehicleStatusSource(context: Context) {
         }
     }
 
-    private var trunkListener: DoorPositionListener? = null
-
     init {
         runCatching {
             vehicle = Vehicle(context).apply {
                 initialize()
                 getGear().registerGearSelection(gearListener)
-                watchTrunk(this)
+                watchDoors(this)
             }
         }.onFailure { Log.w(TAG, "Vehicle SDK 연결 실패", it) }
     }
 
-    private fun watchTrunk(vehicle: Vehicle) {
+    private fun watchDoors(vehicle: Vehicle) {
         val door = vehicle.getDoor()
         door.checkDoorPositionCapabilities(
             { _, bounds ->
-                val entry = bounds.entries.firstOrNull { (area, _) -> DoorValue.REAR in area.values } ?: return@checkDoorPositionCapabilities
-                val listener = trunkListener(entry.value)
-                door.registerDoorPosition(entry.key, listener)
-                trunkArea = entry.key
-                trunkListener = listener
+                bounds.forEach { (area, areaBounds) ->
+                    val update: ((Boolean) -> Unit)? = when {
+                        DoorValue.REAR in area.values -> { open -> _status.update { it.copy(trunkOpen = open) } }
+                        DoorValue.ROW_1_LEFT in area.values -> { open -> _status.update { it.copy(driverDoorOpen = open) } }
+                        else -> null
+                    }
+                    update?.let {
+                        val listener = doorListener(areaBounds, it)
+                        door.registerDoorPosition(area, listener)
+                        doorListeners[area] = listener
+                    }
+                }
             },
-            { Log.w(TAG, "트렁크 지원 여부 확인 실패", it) },
+            { Log.w(TAG, "문 위치 지원 여부 확인 실패", it) },
         )
     }
 
-    private fun trunkListener(bounds: AreaBounds<Int>) = object : DoorPositionListener {
+    private fun doorListener(bounds: AreaBounds<Int>, onOpenChanged: (Boolean) -> Unit) = object : DoorPositionListener {
         override fun onPositionUpdated(position: Int?) {
             position ?: return
-            _status.update { it.copy(trunkOpen = position > bounds.minValue) }
+            onOpenChanged(position > bounds.minValue)
         }
 
         override fun onFailed(e: Exception) {
-            Log.w(TAG, "트렁크 구독 실패", e)
+            Log.w(TAG, "문 위치 구독 실패", e)
         }
     }
 
     fun release() {
         vehicle?.let { v ->
             runCatching { v.getGear().unregisterGearSelection(gearListener) }
-            val area = trunkArea
-            val listener = trunkListener
-            if (area != null && listener != null) runCatching { v.getDoor().unregisterDoorPosition(area, listener) }
+            doorListeners.forEach { (area, listener) -> runCatching { v.getDoor().unregisterDoorPosition(area, listener) } }
             runCatching { v.release() }
         }
+        doorListeners.clear()
         vehicle = null
     }
 
