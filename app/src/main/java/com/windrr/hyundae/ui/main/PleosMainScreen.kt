@@ -142,16 +142,14 @@ private fun NavRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // 임시 로고: 로고 에셋 받으면 교체
-        Box(
+        // 앱 아이콘과 같은 로고
+        Image(
+            painter = painterResource(R.drawable.img_app_logo),
+            contentDescription = null,
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Brush.verticalGradient(listOf(LogoTop, LogoBottom))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(text = "ㅊ", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-        }
+                .clip(RoundedCornerShape(16.dp)),
+        )
         Spacer(Modifier.height(20.dp))
         PleosTab.entries.forEach { tab ->
             NavItem(tab = tab, selected = tab == selected, onClick = { onSelect(tab) })
@@ -243,8 +241,6 @@ private const val LOCATION_PERMISSION = "pleos.car.permission.FUSED_LOCATION"
 private val BackgroundTop = Color(0xFFF4F6FA)
 private val BackgroundBottom = Color(0xFFE6ECF5)
 private val RailShadow = Color(0x221B2B4B)
-private val LogoTop = Color(0xFF1E3A66)
-private val LogoBottom = Color(0xFF13284A)
 private val NavSelectedTop = Color(0xFF2F5A8C)
 private val NavSelectedBottom = Color(0xFF1C3E6A)
 private val NavIdle = Color(0xFFF1F4F9)
