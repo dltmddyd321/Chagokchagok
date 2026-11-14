@@ -43,8 +43,8 @@ sealed interface LoadResultState {
 
     /**
      * 계산 결과.
-     * [possible] = 지금 조건 그대로 실을 수 있음. 불가능이면 [options]는 앱이 조건을 바꿔 다시 계산해 찾은 대안
-     * (짐 빼고 싣기 · 동승자 줄이기). 대안도 없으면 비어 있다.
+     * [possible] = 지금 조건 그대로 실을 수 있음. 불가능이면 [options]는 서버가 같이 준 짐 빼고 싣기 대안.
+     * 대안도 없으면 비어 있다.
      */
     data class Result(
         val possible: Boolean,
@@ -61,10 +61,9 @@ sealed interface LoadResultState {
  * 적재 결과: 화면에 들어오면 POST /calculations/preview.
  * - 좌석 위치는 보내지 않고 인원 수만 → 서버가 사람 자리를 정해 배치안에 넣는다.
  * - 좌석·접은 좌석을 쓰려면 "지금 비어 있는 좌석"이 필요해서 전 좌석을 비어 있음(사용자 입력)으로 보낸다.
- * - 다 못 실으면 서버가 원인을 주지 않아서, 대안을 직접 찾는다:
- *   ① 짐 제외 허용(allow_exclusions) → 서버가 "이 짐을 빼면 나머지는 실림" 배치를 준다 (뺄 짐 이름·이유)
- *   ② 동승자를 한 명씩 줄여 다시 계산 → 처음 실리는 인원을 추천
- * 요청마다 새 Idempotency-Key (조건이 다른 새 계산).
+ * - 서버 요청은 한 번만. 짐 제외를 허용(allow_exclusions)해 두면, 다 못 실을 때
+ *   서버가 "이 짐을 빼면 나머지는 실림" 대안 배치(뺄 짐 이름·이유)를 같이 준다 → 불가능 화면의 추천 방법.
+ * 새 계산마다 새 Idempotency-Key, 통신 오류 후 다시 시도는 같은 키.
  */
 class LoadResultViewModel(
     private val remote: PlanRemoteRepository = PlanRemoteRepository(),
@@ -74,6 +73,9 @@ class LoadResultViewModel(
     val state: StateFlow<LoadResultState> = _state.asStateFlow()
 
     private var input: LoadResultInput? = null
+
+    /** 이 계산 요청의 키. 통신 오류로 다시 시도할 때만 같은 값 */
+    private var idempotencyKey = UUID.randomUUID().toString()
 
     fun start(input: LoadResultInput) {
         if (this.input != null) return
@@ -91,9 +93,13 @@ class LoadResultViewModel(
         val current = input ?: return
         _state.value = LoadResultState.Loading
         viewModelScope.launch {
-            val first = when (val result = preview(current, current.passengerCount)) {
-                is ApiResult.Success -> result.data
-                is ApiResult.Failure -> return@launch fail(result.message ?: "배치를 계산하지 못했어요.", result)
+            val first = when (val result = remote.previewCalculation(buildRequest(current), idempotencyKey)) {
+                is ApiResult.Success -> result.data.calculation
+                is ApiResult.Failure -> {
+                    // 서버가 요청을 거절(4xx)했으면 같은 키로 다시 보내도 결과가 같다 → 새 키
+                    if (result.httpCode in 400..499) idempotencyKey = UUID.randomUUID().toString()
+                    return@launch fail(result.message ?: "배치를 계산하지 못했어요.", result)
+                }
                 is ApiResult.NetworkError -> return@launch fail("네트워크 연결을 확인하고 다시 시도해 주세요.", result)
             }
             if (first.isSuccess && first.resultCode == RESULT_LAYOUT_FOUND && !first.arrangements.isNullOrEmpty()) {
@@ -101,28 +107,11 @@ class LoadResultViewModel(
                 _state.value = LoadResultState.Result(possible = true, options = options)
                 return@launch
             }
-            Log.i(TAG, "적재 불가 ${first.resultCode} → 대안 계산")
-            _state.value = LoadResultState.Result(possible = false, options = alternatives(current, first))
+            Log.i(TAG, "적재 불가 ${first.resultCode}, 짐 빼기 대안 ${first.alternatives?.size ?: 0}개")
+            // 불가능일 때 추천 방법 = 서버가 같이 준 짐 빼기 대안
+            val options = first.alternatives.orEmpty().sortedBy { it.rank }.take(MAX_OPTIONS).map { option(it, first, current.passengerCount) }
+            _state.value = LoadResultState.Result(possible = false, options = options)
         }
-    }
-
-    /** 실패했을 때 대안: ① 서버가 준 짐 제외 배치 ② 동승자 줄이기 */
-    private suspend fun alternatives(current: LoadResultInput, first: PreviewCalculation): List<ArrangementOptionUi> {
-        val options = mutableListOf<ArrangementOptionUi>()
-        first.alternatives.orEmpty().sortedBy { it.rank }.take(MAX_EXCLUSION_OPTIONS).forEach { arrangement ->
-            options += option(arrangement, first, current.passengerCount)
-        }
-        // 동승자를 한 명씩 줄여 처음 다 실리는 인원 (운전자 1명까지)
-        for (count in current.passengerCount - 1 downTo 1) {
-            val calculation = (preview(current, count, allowExclusions = false) as? ApiResult.Success)?.data ?: break
-            val best = calculation.arrangements.orEmpty().minByOrNull { it.rank }
-            if (calculation.isSuccess && best != null) {
-                val base = option(best, calculation, count)
-                options += base.copy(title = "동승자 ${count - 1}명으로 조정", subtitle = "총 ${count}명 탑승 · ${base.title}")
-                break
-            }
-        }
-        return options.take(MAX_OPTIONS)
     }
 
     private fun option(arrangement: ArrangementResponse, calculation: PreviewCalculation, passengerCount: Int): ArrangementOptionUi {
@@ -141,13 +130,6 @@ class LoadResultViewModel(
         }
     }
 
-    private suspend fun preview(input: LoadResultInput, passengerCount: Int, allowExclusions: Boolean = true): ApiResult<PreviewCalculation> =
-        when (val result = remote.previewCalculation(buildRequest(input, passengerCount, allowExclusions), UUID.randomUUID().toString())) {
-            is ApiResult.Success -> ApiResult.Success(result.data.calculation)
-            is ApiResult.Failure -> result
-            is ApiResult.NetworkError -> result
-        }
-
     private fun fail(message: String, result: ApiResult<*>) {
         Log.w(TAG, "배치 계산 실패: $result")
         _state.value = LoadResultState.Error(message)
@@ -164,17 +146,16 @@ class LoadResultViewModel(
         const val TAG = "LoadResult"
         const val RESULT_LAYOUT_FOUND = "LAYOUT_FOUND"
         const val MAX_OPTIONS = 3
-        const val MAX_EXCLUSION_OPTIONS = 2
 
         /** 서버 차량 (1차는 고정) */
         const val SERVER_VEHICLE_ID = "avante_demo"
 
         val ALL_SEATS = listOf("ROW_1_LEFT", "ROW_1_RIGHT", "ROW_2_LEFT", "ROW_2_CENTER", "ROW_2_RIGHT")
 
-        fun buildRequest(input: LoadResultInput, passengerCount: Int, allowExclusions: Boolean) = PreviewRequest(
+        fun buildRequest(input: LoadResultInput) = PreviewRequest(
             plan = PreviewPlanInput(
                 vehicleId = SERVER_VEHICLE_ID,
-                passengerCount = passengerCount,
+                passengerCount = input.passengerCount,
                 // 자리는 서버가 정한다
                 passengerSeats = null,
                 items = input.items.map { item ->
@@ -190,7 +171,8 @@ class LoadResultViewModel(
                 },
             ),
             calculationOptions = CalculationOptions(
-                allowExclusions = allowExclusions,
+                // 다 못 실으면 "이 짐을 빼면 실림" 대안을 같이 받는다
+                allowExclusions = true,
                 vehicleState = VehicleStateInput(
                     observedAt = OffsetDateTime.now().toString(),
                     seats = ALL_SEATS.map { SeatObservationInput(seatCode = it, occupancy = "EMPTY", source = "USER") },

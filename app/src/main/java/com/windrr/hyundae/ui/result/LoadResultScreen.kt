@@ -177,7 +177,7 @@ private fun ResultTitle(state: LoadResultState) {
             buildAnnotatedString {
                 append("현재 조건은 ")
                 withStyle(SpanStyle(color = ImpossibleRed)) { append("적재 불가능") }
-            } to if (state.options.isEmpty()) "조건을 바꿔도 실을 수 있는 배치를 찾지 못했어요" else "현재 좌석으로는 짐을 함께 싣기 어렵습니다"
+            } to if (state.options.isEmpty()) "짐을 빼도 실을 수 있는 배치를 찾지 못했어요" else "현재 좌석으로는 짐을 함께 싣기 어렵습니다"
         }
         is LoadResultState.Error -> buildAnnotatedString { append("배치를 확인하지 못했어요") } to "잠시 후 다시 시도해 주세요"
     }
