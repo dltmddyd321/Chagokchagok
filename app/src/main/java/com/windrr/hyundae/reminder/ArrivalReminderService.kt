@@ -20,6 +20,9 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.windrr.hyundae.data.local.AppDatabase
+import com.windrr.hyundae.data.remote.ApiResult
+import com.windrr.hyundae.data.remote.CargoReminderRemoteRepository
+import com.windrr.hyundae.data.remote.model.CargoReminderEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +44,7 @@ class ArrivalReminderService : Service() {
     private var naviHelper: NaviHelper? = null
     private val doorListeners = mutableMapOf<DoorArea, DoorPositionListener>()
     private var doorWaitJob: Job? = null
+    private val cargoReminderRemote by lazy { CargoReminderRemoteRepository() }
 
     private val gearListener = object : GearSelectionListener {
         override fun onSelected(gear: VehicleGear?) {
@@ -115,7 +119,7 @@ class ArrivalReminderService : Service() {
     private fun doorListener(bounds: AreaBounds<Int>) = object : DoorPositionListener {
         override fun onPositionUpdated(position: Int?) {
             if (position == null || position <= bounds.minValue) return
-            scope.launch { handle(rule.onDoorOpened()) }
+            scope.launch { handle(rule.onDoorOpened(), CargoReminderEvent.DOOR_OPENED) }
         }
 
         override fun onFailed(e: Exception) {
@@ -123,26 +127,37 @@ class ArrivalReminderService : Service() {
         }
     }
 
-    private suspend fun handle(shouldRemind: Boolean) {
+    /** @param event 지금 알린다면 그 계기 (문 열림이 아니면 도착·P단) */
+    private suspend fun handle(shouldRemind: Boolean, event: CargoReminderEvent = CargoReminderEvent.DESTINATION_ARRIVED) {
         if (shouldRemind) {
             doorWaitJob?.cancel()
-            remind()
+            remind(event)
             return
         }
         if (rule.isWaitingForDoor && doorWaitJob?.isActive != true) {
             doorWaitJob = scope.launch {
                 delay(rule.doorWaitMs)
-                if (rule.onDoorWaitElapsed()) remind()
+                if (rule.onDoorWaitElapsed()) remind(CargoReminderEvent.DESTINATION_ARRIVED)
             }
         } else if (!rule.isWaitingForDoor) {
             doorWaitJob?.cancel()
         }
     }
 
-    private suspend fun remind() {
-        val items = planId?.let { AppDatabase.getInstance(this).planDao().getPlan(it) }?.items.orEmpty()
+    /** 차량 알림 + 서버에 폰 알림 요청(등록된 폰으로 FCM). 서버 요청이 실패해도 차량 알림은 띄운다 */
+    private suspend fun remind(event: CargoReminderEvent) {
+        val currentPlanId = planId
+        val items = currentPlanId?.let { AppDatabase.getInstance(this).planDao().getPlan(it) }?.items.orEmpty()
         if (items.isNotEmpty()) ReminderNotifier.notifyArrival(this, items)
+        if (currentPlanId != null) requestPhoneReminder(currentPlanId, event)
         stopSelf()
+    }
+
+    private suspend fun requestPhoneReminder(planId: String, event: CargoReminderEvent) {
+        when (val result = cargoReminderRemote.requestCargoReminder(planId, event)) {
+            is ApiResult.Success -> Log.d(TAG, "폰 짐 챙기기 알림 요청 $event → ${result.data.status} (${result.data.acceptedCount}대)")
+            else -> Log.w(TAG, "폰 짐 챙기기 알림 요청 실패 $event: $result")
+        }
     }
 
     override fun onDestroy() {

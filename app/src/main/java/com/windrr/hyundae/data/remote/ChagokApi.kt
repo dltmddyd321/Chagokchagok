@@ -2,6 +2,8 @@ package com.windrr.hyundae.data.remote
 
 import com.windrr.hyundae.data.remote.model.CalculationRequest
 import com.windrr.hyundae.data.remote.model.CalculationResponse
+import com.windrr.hyundae.data.remote.model.CargoReminderRequest
+import com.windrr.hyundae.data.remote.model.CargoReminderResponse
 import com.windrr.hyundae.data.remote.model.PlanCreateRequest
 import com.windrr.hyundae.data.remote.model.PlanResponse
 import retrofit2.Response
@@ -25,7 +27,19 @@ interface ChagokApi {
         @Body request: CalculationRequest,
     ): Response<ApiResponse<CalculationResponse>>
 
+    /** 도착·문 열림 시 폰으로 짐 챙기기 알림 요청. 서버가 등록된 폰들에 FCM 발송 */
+    @POST("api/v1/plans/{plan_id}/cargo-reminders")
+    suspend fun requestCargoReminder(
+        @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
+        @Header(NOTIFICATION_KEY_HEADER) notificationKey: String?,
+        @Path("plan_id") planId: String,
+        @Body request: CargoReminderRequest,
+    ): Response<ApiResponse<CargoReminderResponse>>
+
     companion object {
         const val IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
+
+        /** 알림 API 선택 헤더. 값이 null이면 Retrofit이 헤더를 빼고 보낸다 */
+        const val NOTIFICATION_KEY_HEADER = "X-Notification-Key"
     }
 }
