@@ -75,7 +75,14 @@ class LoadCheckViewModel(
                 val d = candidate.intCm(candidate.depthCm)
                 val h = candidate.intCm(candidate.heightCm)
                 if (w == null || d == null || h == null || !s.canAddItem) return@update s
-                val item = LoadItem("product-${candidate.candidateId}", candidate.name.take(MAX_NAME_LENGTH), w, d, h)
+                val item = LoadItem(
+                    key = "product-${candidate.candidateId}",
+                    name = candidate.name.take(MAX_NAME_LENGTH),
+                    widthCm = w,
+                    depthCm = d,
+                    heightCm = h,
+                    stateLabel = candidate.transportState.shortLabel,
+                )
                 s.copy(items = s.items + item, productSearch = null)
             }
             LoadCheckIntent.EnterProductDimensions -> _state.update { s ->

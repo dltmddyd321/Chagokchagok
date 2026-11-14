@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -54,6 +53,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -304,11 +305,13 @@ private fun ItemsCard(items: List<LoadItem>, count: Int, onRemove: (String) -> U
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.weight(1f),
             ) {
-                items(items, key = { it.key }) { item -> ItemTile(item = item, onRemove = { onRemove(item.key) }) }
+                itemsIndexed(items, key = { _, item -> item.key }) { index, item ->
+                    ItemTile(index = index, item = item, onRemove = { onRemove(item.key) })
+                }
             }
         }
     }
@@ -328,42 +331,76 @@ private fun EmptyItems(modifier: Modifier = Modifier) {
     }
 }
 
-/** 짐 한 칸: 이미지 · 이름 · 크기 · 수량 · ✕ */
+/**
+ * 짐 카드 (시안): "N번째 짐" + ✕ / 이미지 칸 / 이름 > / "1개 · 가로 × 세로 × 높이 cm · 운반 상태".
+ * 제품 이미지는 서버가 주지 않아 기본 상자 그림.
+ */
 @Composable
-private fun ItemTile(item: LoadItem, onRemove: () -> Unit) {
-    Row(
+private fun ItemTile(index: Int, item: LoadItem, onRemove: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(shape)
             .background(Color.White)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .border(1.dp, TileBorder, shape)
+            .padding(18.dp),
     ) {
-        // 임시 이미지: 제품 이미지가 없으면 캐리어 사진
-        Image(
-            painter = painterResource(R.drawable.img_item_suitcase_travel_bag),
-            contentDescription = null,
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(LightCardTint),
-        )
-        Spacer(Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = item.name, color = PleosTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Spacer(Modifier.height(4.dp))
-            Text(text = "${item.sizeLabel} · ${item.quantity}개", color = PleosTextSecondary, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "${index + 1}번째 짐",
+                color = PleosTextPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(RemoveBg)
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = "✕", color = PleosTextSecondary, fontSize = 16.sp)
+            }
         }
+        Spacer(Modifier.height(12.dp))
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(RemoveBg)
-                .clickable(onClick = onRemove),
+                .fillMaxWidth()
+                .height(150.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .border(1.dp, TileBorder, RoundedCornerShape(14.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = "✕", color = PleosTextSecondary, fontSize = 13.sp)
+            Image(
+                painter = painterResource(R.drawable.ic_item_box),
+                contentDescription = null,
+                modifier = Modifier.size(96.dp),
+            )
         }
+        Spacer(Modifier.height(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = item.name,
+                color = PleosTextPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(painter = painterResource(R.drawable.ic_chevron_right), contentDescription = null, tint = PleosTextSecondary)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = item.detailLabel,
+            color = PleosTextSecondary,
+            fontSize = 15.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -703,7 +740,8 @@ private val MicBottom = Color(0xFF12294A)
 private val LightCardTint = Color(0xFFE2EAF7)
 private val CountZero = Color(0xFFB9C3D3)
 private val DashColor = Color(0xFFB7C6DD)
-private val RemoveBg = Color(0xFFF0F2F6)
+private val RemoveBg = Color(0xFFEDF1F7)
+private val TileBorder = Color(0xFFE4EAF3)
 private val StepperBg = Color(0xFFEFF3F9)
 private val StepTop = Color(0xFFF2F6FC)
 private val StepBottom = Color(0xFFDCE5F2)

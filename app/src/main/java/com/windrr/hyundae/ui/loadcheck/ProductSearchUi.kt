@@ -74,10 +74,11 @@ data class ProductCandidateUi(
     }
 }
 
-enum class TransportState(val code: String, val label: String) {
-    PACKAGED("PACKAGED", "포장된 상태"),
-    ASSEMBLED("ASSEMBLED", "조립된 상태"),
-    FOLDED("FOLDED", "접힌 상태"),
+/** [label] 찾은 제품 규격 창, [shortLabel] 짐 카드 */
+enum class TransportState(val code: String, val label: String, val shortLabel: String) {
+    PACKAGED("PACKAGED", "포장된 상태", "포장 상태"),
+    ASSEMBLED("ASSEMBLED", "조립된 상태", "조립 상태"),
+    FOLDED("FOLDED", "접힌 상태", "접힌 상태"),
     ;
 
     companion object {

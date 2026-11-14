@@ -8,8 +8,13 @@ data class LoadItem(
     val depthCm: Int,
     val heightCm: Int,
     val quantity: Int = 1,
+    /** "조립 상태" 등 운반 상태 (제품 검색으로 추가했을 때만) */
+    val stateLabel: String? = null,
 ) {
     val sizeLabel: String get() = "$widthCm × $depthCm × $heightCm cm"
+
+    /** 카드 아래 줄: "1개 · 120 × 60 × 73 cm · 조립 상태" */
+    val detailLabel: String get() = listOfNotNull("${quantity}개", sizeLabel, stateLabel).joinToString(" · ")
 }
 
 /**
