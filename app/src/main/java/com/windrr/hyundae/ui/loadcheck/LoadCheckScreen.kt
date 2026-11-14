@@ -53,6 +53,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -466,14 +467,27 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 .background(Color.White)
                 .padding(horizontal = 44.dp, vertical = 40.dp),
         ) {
-            Text(text = "짐 치수 직접 입력", color = PleosTextPrimary, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
+            Text(text = "짐 정보 직접 입력", color = PleosTextPrimary, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
-            Text(text = "치수 항목을 선택한 뒤 숫자판으로 입력해 주세요", color = PleosTextSecondary, fontSize = 17.sp)
-            if (input.name.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(text = "“${input.name}”", color = PleosNavy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
+            Text(text = "짐 이름과 수량, 짐의 크기를 입력해 주세요.", color = PleosTextSecondary, fontSize = 17.sp)
             Spacer(Modifier.height(28.dp))
+
+            // 짐 이름 | 수량
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                NameField(
+                    name = input.name,
+                    onNameChange = { onIntent(LoadCheckIntent.ManualNameChanged(it)) },
+                    modifier = Modifier.weight(1f),
+                )
+                QuantityField(quantity = input.quantity, onIntent = onIntent, modifier = Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = "짐 1개의 크기를 입력해 주세요. 같은 크기의 짐은 수량을 늘려 주세요.",
+                color = PleosTextSecondary,
+                fontSize = 15.sp,
+            )
+            Spacer(Modifier.height(18.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 Column(
@@ -502,6 +516,65 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 }
             }
         }
+    }
+}
+
+/** 짐 이름 입력 칸 (시스템 키보드). 비워 두면 "짐 N"으로 저장 */
+@Composable
+private fun NameField(name: String, onNameChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .height(74.dp)
+            .clip(shape)
+            .background(RowBg)
+            .border(1.dp, RowBorder, shape)
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "짐 이름", color = PleosTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(48.dp))
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (name.isEmpty()) {
+                Text(text = "예: 캠핑 박스", color = NamePlaceholder, fontSize = 20.sp)
+            }
+            BasicTextField(
+                value = name,
+                onValueChange = onNameChange,
+                singleLine = true,
+                textStyle = TextStyle(color = PleosTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
+                cursorBrush = SolidColor(PleosNavy),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** 수량  [−]  1개  [+] */
+@Composable
+private fun QuantityField(quantity: Int, onIntent: (LoadCheckIntent) -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .height(74.dp)
+            .clip(shape)
+            .background(RowBg)
+            .border(1.dp, RowBorder, shape)
+            .padding(start = 24.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "수량", color = PleosTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        KeyButton(text = "−", width = 58.dp, height = 56.dp, tinted = false) { onIntent(LoadCheckIntent.StepManualQuantity(-1)) }
+        Text(
+            text = "${quantity}개",
+            color = PleosTextPrimary,
+            fontSize = 32.sp,
+            fontWeight = FontWeight.ExtraBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(150.dp),
+        )
+        KeyButton(text = "+", width = 58.dp, height = 56.dp, tinted = true) { onIntent(LoadCheckIntent.StepManualQuantity(1)) }
     }
 }
 
@@ -616,6 +689,7 @@ private fun DialogButton(text: String, primary: Boolean, enabled: Boolean, modif
 }
 
 private val RowBg = Color(0xFFF6F8FC)
+private val NamePlaceholder = Color(0xFF8A93A6)
 private val RowBorder = Color(0xFFE2E8F2)
 private val RowSelectedBg = Color(0xFFEAF2FE)
 private val RowSelectedBorder = Color(0xFF6F9CE0)

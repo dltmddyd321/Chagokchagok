@@ -36,6 +36,15 @@ class LoadCheckViewModel(
                 if (it.canAddItem) it.copy(manualInput = ManualInputState(name = intent.name.take(MAX_NAME_LENGTH))) else it
             }
             LoadCheckIntent.CloseManualInput -> _state.update { it.copy(manualInput = null) }
+            is LoadCheckIntent.ManualNameChanged -> updateManual {
+                it.copy(name = intent.name.replace("\n", "").take(MAX_NAME_LENGTH))
+            }
+            is LoadCheckIntent.StepManualQuantity -> _state.update { s ->
+                val input = s.manualInput ?: return@update s
+                // 이미 담은 짐과 합쳐 최대 개수를 넘지 않게
+                val max = (LoadCheckUiState.MAX_ITEMS - s.itemCount).coerceAtLeast(1)
+                s.copy(manualInput = input.copy(quantity = (input.quantity + intent.delta).coerceIn(1, max)))
+            }
             is LoadCheckIntent.SelectField -> updateManual { it.copy(selected = intent.field) }
             is LoadCheckIntent.StepField -> updateManual {
                 val current = it.valueOf(intent.field).toIntOrNull() ?: 0

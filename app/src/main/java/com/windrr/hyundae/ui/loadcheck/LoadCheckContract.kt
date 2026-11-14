@@ -13,12 +13,13 @@ data class LoadItem(
 }
 
 /**
- * 치수 직접 입력 창 상태 (시안: 가로·세로·높이 + 숫자판).
- * 숫자는 입력 중 빈 칸을 허용하려고 문자열로 든다. 선택한 항목에 숫자판 입력이 들어간다.
- * 이름은 화면에 입력 칸이 없어서, 음성으로 들은 제품명이 있으면 그걸 쓰고 없으면 "짐 N"으로 저장한다.
+ * 짐 정보 직접 입력 창 상태 (시안: 짐 이름 · 수량 + 가로·세로·높이 + 숫자판).
+ * 치수는 입력 중 빈 칸을 허용하려고 문자열로 든다. 선택한 치수 항목에 숫자판 입력이 들어간다.
+ * 이름은 비워 두면 "짐 N"으로 저장한다. 크기는 짐 1개 기준, 같은 크기는 수량으로.
  */
 data class ManualInputState(
     val name: String = "",
+    val quantity: Int = 1,
     val width: String = "",
     val depth: String = "",
     val height: String = "",
@@ -42,7 +43,7 @@ data class ManualInputState(
 
     fun toItem(key: String, fallbackName: String): LoadItem? {
         if (!canSave) return null
-        return LoadItem(key, name.trim().ifBlank { fallbackName }, width.cm()!!, depth.cm()!!, height.cm()!!)
+        return LoadItem(key, name.trim().ifBlank { fallbackName }, width.cm()!!, depth.cm()!!, height.cm()!!, quantity)
     }
 }
 
@@ -106,6 +107,12 @@ sealed interface LoadCheckIntent {
     data object CloseProductSearch : LoadCheckIntent
 
     data object CloseManualInput : LoadCheckIntent
+
+    /** 짐 이름 입력 */
+    data class ManualNameChanged(val name: String) : LoadCheckIntent
+
+    /** 수량 −/+ */
+    data class StepManualQuantity(val delta: Int) : LoadCheckIntent
 
     /** 치수 항목 선택 (숫자판 입력 대상) */
     data class SelectField(val field: ManualField) : LoadCheckIntent
