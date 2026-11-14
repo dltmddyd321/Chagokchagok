@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.windrr.hyundae.data.local.AppDatabase
+import com.windrr.hyundae.data.sync.PlanSyncRepository
 import com.windrr.hyundae.push.PushNotifier
 import com.windrr.hyundae.push.PushTokenSync
 import com.windrr.hyundae.reminder.ArrivalReminderService
@@ -18,7 +19,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        startArrivalReminderForLatestPlan()
+        syncPlansThenStartArrivalReminder()
         setUpPush()
         setContent {
             HyundaeTheme {
@@ -34,8 +35,13 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { PushTokenSync.refresh(applicationContext) }
     }
 
-    private fun startArrivalReminderForLatestPlan() {
+    /**
+     * 서버 계획·짐 목록을 기기 DB로 받은 뒤, 가장 최근 계획으로 도착 감지를 시작한다.
+     * 동기화가 실패해도(오프라인 등) 기기에 있던 계획으로 시작한다.
+     */
+    private fun syncPlansThenStartArrivalReminder() {
         lifecycleScope.launch {
+            PlanSyncRepository(applicationContext).syncRecentPlans()
             val latestPlan = AppDatabase.getInstance(this@MainActivity).planDao().observePlans().first().firstOrNull()
             latestPlan?.let { ArrivalReminderService.start(this@MainActivity, it.plan.planId) }
         }
