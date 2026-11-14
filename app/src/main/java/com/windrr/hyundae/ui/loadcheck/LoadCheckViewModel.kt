@@ -59,7 +59,32 @@ class LoadCheckViewModel(
             }
             LoadCheckIntent.KeypadClear -> updateManual { it.with(it.selected, "") }
             LoadCheckIntent.KeypadBackspace -> updateManual { it.with(it.selected, it.valueOf(it.selected).dropLast(1)) }
+            is LoadCheckIntent.EditItem -> _state.update { s ->
+                val item = s.items.firstOrNull { it.key == intent.key } ?: return@update s
+                s.copy(
+                    manualInput = ManualInputState(
+                        name = item.name,
+                        quantity = item.quantity,
+                        width = item.widthCm.toString(),
+                        depth = item.depthCm.toString(),
+                        height = item.heightCm.toString(),
+                        editingKey = item.key,
+                        stateLabel = item.stateLabel,
+                    ),
+                )
+            }
             LoadCheckIntent.ConfirmManualInput -> _state.update { s ->
+                val input = s.manualInput ?: return@update s
+                // 치수 수정: 그 짐의 가로·세로·높이만 바꾼다 (이름·수량·운반 상태 유지)
+                input.editingKey?.let { key ->
+                    val edited = input.toItem(key, "") ?: return@update s
+                    return@update s.copy(
+                        items = s.items.map {
+                            if (it.key == key) it.copy(widthCm = edited.widthCm, depthCm = edited.depthCm, heightCm = edited.heightCm) else it
+                        },
+                        manualInput = null,
+                    )
+                }
                 val item = s.manualInput?.toItem("manual-${UUID.randomUUID()}", "짐 ${s.items.size + 1}") ?: return@update s
                 if (s.itemCount + item.quantity > LoadCheckUiState.MAX_ITEMS) return@update s
                 s.copy(items = s.items + item, manualInput = null)

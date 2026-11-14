@@ -176,6 +176,7 @@ fun LoadCheckScreen(
                     items = state.items,
                     count = state.itemCount,
                     onRemove = { onIntent(LoadCheckIntent.RemoveItem(it)) },
+                    onEdit = { onIntent(LoadCheckIntent.EditItem(it)) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -280,7 +281,13 @@ private fun ManualInputCard(enabled: Boolean, onClick: () -> Unit) {
 
 /** 가져갈 짐 N + 목록 (없으면 점선 빈 칸) */
 @Composable
-private fun ItemsCard(items: List<LoadItem>, count: Int, onRemove: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun ItemsCard(
+    items: List<LoadItem>,
+    count: Int,
+    onRemove: (String) -> Unit,
+    onEdit: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val shape = RoundedCornerShape(24.dp)
     Column(
         modifier = modifier
@@ -310,7 +317,7 @@ private fun ItemsCard(items: List<LoadItem>, count: Int, onRemove: (String) -> U
                 modifier = Modifier.weight(1f),
             ) {
                 itemsIndexed(items, key = { _, item -> item.key }) { index, item ->
-                    ItemTile(index = index, item = item, onRemove = { onRemove(item.key) })
+                    ItemTile(index = index, item = item, onRemove = { onRemove(item.key) }, onEdit = { onEdit(item.key) })
                 }
             }
         }
@@ -336,7 +343,7 @@ private fun EmptyItems(modifier: Modifier = Modifier) {
  * 제품 이미지는 서버가 주지 않아 기본 상자 그림.
  */
 @Composable
-private fun ItemTile(index: Int, item: LoadItem, onRemove: () -> Unit) {
+private fun ItemTile(index: Int, item: LoadItem, onRemove: () -> Unit, onEdit: () -> Unit) {
     val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = Modifier
@@ -344,6 +351,8 @@ private fun ItemTile(index: Int, item: LoadItem, onRemove: () -> Unit) {
             .clip(shape)
             .background(Color.White)
             .border(1.dp, TileBorder, shape)
+            // 카드(화살표)를 누르면 치수 수정
+            .clickable(onClick = onEdit)
             .padding(18.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -504,13 +513,22 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 .background(Color.White)
                 .padding(horizontal = 44.dp, vertical = 40.dp),
         ) {
-            Text(text = "짐 정보 직접 입력", color = PleosTextPrimary, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                text = if (input.isEditing) "짐 치수 수정" else "짐 정보 직접 입력",
+                color = PleosTextPrimary,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
             Spacer(Modifier.height(10.dp))
-            Text(text = "짐 이름과 수량, 짐의 크기를 입력해 주세요.", color = PleosTextSecondary, fontSize = 17.sp)
+            Text(
+                text = if (input.isEditing) "치수 항목을 선택한 뒤 숫자판으로 입력해 주세요" else "짐 이름과 수량, 짐의 크기를 입력해 주세요.",
+                color = PleosTextSecondary,
+                fontSize = 17.sp,
+            )
             Spacer(Modifier.height(28.dp))
 
-            // 짐 이름 | 수량
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            // 짐 이름 | 수량 (새 짐 추가일 때만)
+            if (!input.isEditing) Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 NameField(
                     name = input.name,
                     onNameChange = { onIntent(LoadCheckIntent.ManualNameChanged(it)) },
@@ -518,19 +536,23 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 )
                 QuantityField(quantity = input.quantity, onIntent = onIntent, modifier = Modifier.weight(1f))
             }
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = "짐 1개의 크기를 입력해 주세요. 같은 크기의 짐은 수량을 늘려 주세요.",
-                color = PleosTextSecondary,
-                fontSize = 15.sp,
-            )
-            Spacer(Modifier.height(18.dp))
+            if (!input.isEditing) {
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = "짐 1개의 크기를 입력해 주세요. 같은 크기의 짐은 수량을 늘려 주세요.",
+                    color = PleosTextSecondary,
+                    fontSize = 15.sp,
+                )
+                Spacer(Modifier.height(18.dp))
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    // 수정: 어떤 짐인지 (이미지 · 이름 · 운반 상태)
+                    if (input.isEditing) EditingItemInfo(name = input.name, stateLabel = input.stateLabel)
                     ManualField.entries.forEach { field ->
                         DimensionRow(
                             field = field,
@@ -548,9 +570,43 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 DialogButton("취소", primary = false, enabled = true, modifier = Modifier.weight(1f)) {
                     onIntent(LoadCheckIntent.CloseManualInput)
                 }
-                DialogButton("저장", primary = true, enabled = input.canSave, modifier = Modifier.weight(1f)) {
+                DialogButton(if (input.isEditing) "변경 저장" else "저장", primary = true, enabled = input.canSave, modifier = Modifier.weight(1f)) {
                     onIntent(LoadCheckIntent.ConfirmManualInput)
                 }
+            }
+        }
+    }
+}
+
+/** 짐 치수 수정 창 위: 짐 이미지 · 이름 · 운반 상태 */
+@Composable
+private fun EditingItemInfo(name: String, stateLabel: String?) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(RowBg)
+            .border(1.dp, RowBorder, shape)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 128.dp, height = 104.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White)
+                .border(1.dp, RowBorder, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(painter = painterResource(R.drawable.ic_item_box), contentDescription = null, modifier = Modifier.size(64.dp))
+        }
+        Spacer(Modifier.width(24.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = name, color = PleosTextPrimary, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            stateLabel?.let {
+                Spacer(Modifier.height(10.dp))
+                Text(text = it, color = PleosTextSecondary, fontSize = 18.sp)
             }
         }
     }

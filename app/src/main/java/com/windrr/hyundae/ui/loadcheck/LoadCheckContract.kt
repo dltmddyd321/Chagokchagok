@@ -29,7 +29,13 @@ data class ManualInputState(
     val depth: String = "",
     val height: String = "",
     val selected: ManualField = ManualField.WIDTH,
+    /** 짐 카드에서 연 "짐 치수 수정"이면 그 짐 key (null = 새 짐 추가) */
+    val editingKey: String? = null,
+    /** 수정할 짐의 운반 상태 (수정 창 위 정보 칸) */
+    val stateLabel: String? = null,
 ) {
+    val isEditing: Boolean get() = editingKey != null
+
     private fun String.cm(): Int? = toIntOrNull()?.takeIf { it in 1..LoadCheckUiState.MAX_CM }
 
     fun valueOf(field: ManualField): String = when (field) {
@@ -115,6 +121,9 @@ sealed interface LoadCheckIntent {
 
     /** 짐 이름 입력 */
     data class ManualNameChanged(val name: String) : LoadCheckIntent
+
+    /** 짐 카드 클릭: 그 짐의 치수 수정 창 */
+    data class EditItem(val key: String) : LoadCheckIntent
 
     /** 수량 −/+ */
     data class StepManualQuantity(val delta: Int) : LoadCheckIntent
