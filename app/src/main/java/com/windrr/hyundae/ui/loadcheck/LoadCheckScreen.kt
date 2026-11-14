@@ -30,6 +30,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -57,6 +60,7 @@ import com.windrr.hyundae.R
 import com.windrr.hyundae.ui.home.PleosNavy
 import com.windrr.hyundae.ui.home.PleosTextPrimary
 import com.windrr.hyundae.ui.home.PleosTextSecondary
+import com.windrr.hyundae.ui.voice.ProductVoiceDialog
 
 /**
  * 적재 확인 > 짐과 탑승 인원.
@@ -65,11 +69,12 @@ import com.windrr.hyundae.ui.home.PleosTextSecondary
 @Composable
 fun LoadCheckRoute(
     onBack: () -> Unit,
-    onVoiceSearch: () -> Unit,
     onRequestCheck: (items: List<LoadItem>, passengerCount: Int) -> Unit,
     viewModel: LoadCheckViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // 제품명 말하기 다이얼로그 (열 때마다 새 키 → 새 음성 세션)
+    var voiceSession by rememberSaveable { mutableStateOf<Long?>(null) }
     LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -79,7 +84,22 @@ fun LoadCheckRoute(
     }
     BackHandler(onBack = onBack)
 
-    LoadCheckScreen(state = state, onIntent = viewModel::onIntent, onVoiceSearch = onVoiceSearch)
+    LoadCheckScreen(
+        state = state,
+        onIntent = viewModel::onIntent,
+        onVoiceSearch = { voiceSession = System.currentTimeMillis() },
+    )
+    voiceSession?.let { session ->
+        ProductVoiceDialog(
+            onDismiss = { voiceSession = null },
+            onRecognized = { text ->
+                // TODO: 제품 규격 API(제품명 → 가로·세로·높이) 연결. 지금은 이름만 채워 치수 직접 입력 창으로
+                voiceSession = null
+                viewModel.onIntent(LoadCheckIntent.OpenManualInputWithName(text))
+            },
+            viewModel = viewModel(key = "product-voice-$session"),
+        )
+    }
     state.manualInput?.let { input ->
         ManualInputDialog(
             input = input,

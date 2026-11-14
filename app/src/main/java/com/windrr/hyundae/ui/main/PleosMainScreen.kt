@@ -102,8 +102,6 @@ fun PleosMainScreen() {
                     PleosTab.HOME -> if (loadCheckId != null) {
                         LoadCheckRoute(
                             onBack = { loadCheckId = null },
-                            // TODO: 음성으로 제품 사이즈 찾기 (STT + 제품 치수 검색) 연결
-                            onVoiceSearch = {},
                             // TODO: 서버 배치 계산 → 적재 결과 화면 연결
                             onRequestCheck = { _, _ -> },
                             viewModel = viewModel(key = "load-check-$loadCheckId"),

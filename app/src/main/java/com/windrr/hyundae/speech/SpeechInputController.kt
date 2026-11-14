@@ -30,6 +30,10 @@ class SpeechInputController(context: Context, private val mode: Mode) {
     private val _state = MutableStateFlow(SpeechInputState())
     val state: StateFlow<SpeechInputState> = _state.asStateFlow()
 
+    /** 마이크 소리 크기 (SDK onUpdatedRms 원본 값). Voice orb 반응에 쓴다 */
+    private val _rms = MutableStateFlow(0.0)
+    val rms: StateFlow<Double> = _rms.asStateFlow()
+
     private var speechToText: SpeechToText? = null
     private var isReady = false
     private var startWhenReady = false
@@ -52,6 +56,7 @@ class SpeechInputController(context: Context, private val mode: Mode) {
         }
 
         override fun onEndedRecognition() {
+            _rms.value = 0.0
             _state.update { it.copy(status = SpeechInputStatus.READY, partialText = "") }
         }
 
@@ -61,7 +66,9 @@ class SpeechInputController(context: Context, private val mode: Mode) {
 
         override fun onReady() = Unit
 
-        override fun onUpdatedRms(rms: Double) = Unit
+        override fun onUpdatedRms(rms: Double) {
+            _rms.value = rms
+        }
     }
 
     fun start() {

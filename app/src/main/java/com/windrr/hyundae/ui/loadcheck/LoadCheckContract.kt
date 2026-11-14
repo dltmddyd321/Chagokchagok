@@ -69,6 +69,9 @@ sealed interface LoadCheckIntent {
     /** 치수 직접 입력 창 */
     data object OpenManualInput : LoadCheckIntent
 
+    /** 음성으로 들은 제품명을 이름 칸에 채워 입력 창 열기 (제품 규격 API 연결 전 임시) */
+    data class OpenManualInputWithName(val name: String) : LoadCheckIntent
+
     data object CloseManualInput : LoadCheckIntent
 
     data class ManualChanged(val field: ManualField, val value: String) : LoadCheckIntent

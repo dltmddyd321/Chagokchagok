@@ -27,6 +27,9 @@ class LoadCheckViewModel : ViewModel() {
             LoadCheckIntent.DecreaseCompanions -> _state.update { it.copy(companions = (it.companions - 1).coerceAtLeast(0)) }
             is LoadCheckIntent.RemoveItem -> _state.update { s -> s.copy(items = s.items.filterNot { it.key == intent.key }) }
             LoadCheckIntent.OpenManualInput -> _state.update { if (it.canAddItem) it.copy(manualInput = ManualInputState()) else it }
+            is LoadCheckIntent.OpenManualInputWithName -> _state.update {
+                if (it.canAddItem) it.copy(manualInput = ManualInputState(name = intent.name.take(MAX_NAME_LENGTH))) else it
+            }
             LoadCheckIntent.CloseManualInput -> _state.update { it.copy(manualInput = null) }
             is LoadCheckIntent.ManualChanged -> updateManual {
                 when (intent.field) {
