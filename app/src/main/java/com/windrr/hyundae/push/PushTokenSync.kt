@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 
 /**
@@ -20,10 +22,13 @@ object PushTokenSync {
         onNewToken(context, token)
     }
 
-    suspend fun onNewToken(context: Context, token: String) {
+    /** 앱 시작(refresh)과 토큰 발급(onNewToken)이 겹쳐도 등록은 한 번씩 차례로 */
+    private val mutex = Mutex()
+
+    suspend fun onNewToken(context: Context, token: String): Unit = mutex.withLock {
         val store = PushTokenStore(context)
         store.save(token)
-        if (store.isSynced) return
+        if (store.isSynced) return@withLock
         if (uploadToServer(token)) store.markSynced()
     }
 
