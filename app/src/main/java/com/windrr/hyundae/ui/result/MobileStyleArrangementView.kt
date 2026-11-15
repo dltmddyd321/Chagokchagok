@@ -44,7 +44,7 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun MobileStyleArrangementView(layout: ArrangementLayoutUi, modifier: Modifier = Modifier) {
-    val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_top_view)
+    val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_cargo_view)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         BoxWithConstraints(
             modifier = Modifier

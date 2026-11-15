@@ -726,7 +726,7 @@ private fun TopView(
     /** 싣지 못하는 짐 (빨간 안내). 서버가 위치를 주지 않아 칸 대신 실린 짐 위에 경고 한 줄로 */
     failedNames: List<String> = emptyList(),
 ) {
-    val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_top_view)
+    val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_cargo_view)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxHeight()) {
         BoxWithConstraints(
             modifier = Modifier
