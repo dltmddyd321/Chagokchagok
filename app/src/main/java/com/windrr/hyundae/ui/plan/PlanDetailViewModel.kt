@@ -16,6 +16,9 @@ import com.windrr.hyundae.data.remote.model.PlanUpdateRequest
 import com.windrr.hyundae.ui.loadcheck.LoadCheckIntent
 import com.windrr.hyundae.ui.loadcheck.LoadCheckUiState
 import com.windrr.hyundae.ui.loadcheck.ManualInputState
+import com.windrr.hyundae.ui.result.ArrangementLayoutMapper
+import com.windrr.hyundae.ui.result.ArrangementLayoutUi
+import com.windrr.hyundae.ui.result.foldDescription
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +42,15 @@ data class PlanItemUi(
         get() = listOfNotNull("${quantity}개", stateLabel ?: if (quantity > 1) "개당 크기" else null).joinToString(" · ")
 }
 
+/** 배치도 미리보기 창 */
+sealed interface PlanPreviewState {
+    data object Loading : PlanPreviewState
+
+    data class Ready(val layout: ArrangementLayoutUi, val foldText: String?) : PlanPreviewState
+
+    data class Message(val text: String) : PlanPreviewState
+}
+
 data class PlanDetailUiState(
     val loading: Boolean = true,
     val planId: String? = null,
@@ -50,6 +62,8 @@ data class PlanDetailUiState(
     val editing: ManualInputState? = null,
     /** 서버 저장 중 */
     val saving: Boolean = false,
+    /** 배치도 미리보기 (null = 닫힘) */
+    val preview: PlanPreviewState? = null,
     val message: String? = null,
 ) {
     val totalPassengers: Int get() = 1 + companions
@@ -177,6 +191,41 @@ class PlanDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun dismissMessage() = _state.update { it.copy(message = null) }
+
+    // ── 배치도 미리보기: 저장할 때 고른 배치안(selected_calculation_id / selected_arrangement_id)을 받아 그린다 ──
+    fun openPreview() {
+        val planId = _state.value.planId ?: return
+        _state.update { it.copy(preview = PlanPreviewState.Loading) }
+        viewModelScope.launch {
+            val next = loadPreview(planId)
+            _state.update { if (it.preview == PlanPreviewState.Loading) it.copy(preview = next) else it }
+        }
+    }
+
+    fun closePreview() = _state.update { it.copy(preview = null) }
+
+    private suspend fun loadPreview(planId: String): PlanPreviewState {
+        // 선택 배치는 최신 계획 상세에서 확인 (다른 기기에서 바뀌었을 수 있음)
+        val plan = when (val result = remote.plan(planId)) {
+            is ApiResult.Success -> result.data.also { server = it }
+            else -> return PlanPreviewState.Message("계획 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.")
+        }
+        val calculationId = plan.selectedCalculationId ?: plan.latestCalculationId
+            ?: return PlanPreviewState.Message("이 계획에는 저장된 배치안이 없어요.")
+        val calculation = when (val result = remote.calculation(planId, calculationId)) {
+            is ApiResult.Success -> result.data
+            else -> {
+                Log.w(TAG, "계산 결과 조회 실패: $result")
+                return PlanPreviewState.Message("배치안을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.")
+            }
+        }
+        val arrangements = calculation.arrangements.orEmpty()
+        val arrangement = plan.selectedArrangementId?.let { id -> arrangements.firstOrNull { it.arrangementId == id } }
+            ?: arrangements.minByOrNull { it.rank }.takeIf { plan.selectedArrangementId == null }
+            ?: return PlanPreviewState.Message("선택한 배치안을 찾지 못했어요.")
+        val layout = ArrangementLayoutMapper.map(arrangement, calculation.inputSnapshot?.items.orEmpty())
+        return PlanPreviewState.Ready(layout, foldDescription(layout))
+    }
 
     private fun currentItems(): List<PlanItemEntity> = local?.items.orEmpty()
 

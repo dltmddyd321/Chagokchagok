@@ -41,6 +41,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.windrr.hyundae.R
+import com.windrr.hyundae.ui.result.MobileStyleArrangementView
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Dialog
 import com.windrr.hyundae.ui.home.PleosNavy
 import com.windrr.hyundae.ui.home.PleosTextPrimary
 import com.windrr.hyundae.ui.home.PleosTextSecondary
@@ -68,8 +73,10 @@ fun PlanDetailRoute(
         onBack = onBack,
         onCompanions = viewModel::changeCompanions,
         onEdit = viewModel::openEdit,
+        onPreview = viewModel::openPreview,
     )
     state.editing?.let { ManualInputDialog(input = it, onIntent = viewModel::onEditIntent) }
+    state.preview?.let { PlanPreviewDialog(preview = it, onClose = viewModel::closePreview) }
 }
 
 @Composable
@@ -78,6 +85,7 @@ fun PlanDetailScreen(
     onBack: () -> Unit,
     onCompanions: (Int) -> Unit,
     onEdit: (String) -> Unit,
+    onPreview: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -148,9 +156,77 @@ fun PlanDetailScreen(
                 BottomButton(text = "뒤로 가기", primary = false, modifier = Modifier.fillMaxWidth(0.45f), onClick = onBack)
             }
             Row(modifier = Modifier.weight(0.58f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                // TODO: 배치도 미리보기·계획 진행하기 동작은 추후 (지금은 버튼만)
-                BottomButton(text = "배치도 미리보기", primary = false, modifier = Modifier.weight(1f), onClick = {})
+                BottomButton(text = "배치도 미리보기", primary = false, modifier = Modifier.weight(1f), onClick = { if (state.planId != null) onPreview() })
+                // TODO: 계획 진행하기 동작은 추후 (지금은 버튼만)
                 BottomButton(text = "계획 진행하기", primary = true, modifier = Modifier.weight(1f), onClick = {})
+            }
+        }
+    }
+}
+
+/** 배치도 미리보기 (시안): 선택한 적재 배치 탑뷰 + 접는 좌석 안내 */
+@Composable
+private fun PlanPreviewDialog(preview: PlanPreviewState, onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.66f)
+                .fillMaxHeight(0.82f)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.White)
+                .padding(horizontal = 44.dp, vertical = 36.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "배치도 미리보기", color = PleosTextPrimary, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(10.dp))
+                    Text(text = "짐을 싣기 전에 위치와 방향을 확인해 주세요.", color = PleosTextSecondary, fontSize = 17.sp)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onClose),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "✕", color = PleosTextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(0.8f)
+                    .align(Alignment.CenterHorizontally)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(PreviewPanel)
+                    .padding(horizontal = 24.dp, vertical = 18.dp),
+            ) {
+                Text(text = "선택한 적재 배치", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(PreviewDivider),
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when (preview) {
+                        PlanPreviewState.Loading -> CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp)
+                        is PlanPreviewState.Message -> Text(text = preview.text, color = Color.White, fontSize = 18.sp, textAlign = TextAlign.Center)
+                        is PlanPreviewState.Ready -> MobileStyleArrangementView(layout = preview.layout, modifier = Modifier.fillMaxHeight())
+                    }
+                }
+            }
+            (preview as? PlanPreviewState.Ready)?.foldText?.let {
+                Spacer(Modifier.height(18.dp))
+                Text(text = it, color = PleosTextSecondary, fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         }
     }
@@ -310,6 +386,8 @@ private fun BottomButton(text: String, primary: Boolean, modifier: Modifier = Mo
 }
 
 private val CardBorder = Color(0xFFE4EAF3)
+private val PreviewPanel = Color(0xFF0B1A33)
+private val PreviewDivider = Color(0xFF23406A)
 private val RowBg = Color(0xFFF1F5FB)
 private val CountBlue = Color(0xFF2E6BD6)
 private val StepTop = Color(0xFFF2F6FC)

@@ -9,6 +9,7 @@ import com.windrr.hyundae.data.remote.model.LoadingGuideRequest
 import com.windrr.hyundae.data.remote.model.LoadingGuideResponse
 import com.windrr.hyundae.data.remote.model.PlanSort
 import com.windrr.hyundae.data.remote.model.PlanUpdateRequest
+import com.windrr.hyundae.data.remote.model.PreviewCalculation
 import com.windrr.hyundae.data.remote.model.PreviewRequest
 import com.windrr.hyundae.data.remote.model.PreviewResponse
 import java.util.UUID
@@ -25,6 +26,10 @@ class PlanRemoteRepository(private val api: ChagokApi = ApiClient.chagokApi) {
         request: PlanUpdateRequest,
         idempotencyKey: String = UUID.randomUUID().toString(),
     ): ApiResult<PlanResponse> = apiCall { api.updatePlan(idempotencyKey, planId, request) }
+
+    /** 저장된 계획의 계산 결과 */
+    suspend fun calculation(planId: String, calculationId: String): ApiResult<PreviewCalculation> =
+        apiCall { api.getCalculation(planId, calculationId) }
 
     /** 계획 상세 (짐 크기 포함) */
     suspend fun plan(planId: String): ApiResult<PlanResponse> = apiCall { api.getPlan(planId) }

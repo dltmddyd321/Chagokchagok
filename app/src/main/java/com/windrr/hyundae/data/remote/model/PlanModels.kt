@@ -30,6 +30,9 @@ data class PlanResponse(
     @SerializedName("passenger_seats") val passengerSeats: List<String>? = null,
     /** 낙관적 잠금 버전. 수정 요청에 expected_revision으로 */
     @SerializedName("revision") val revision: Int? = null,
+    /** 저장할 때 고른 배치안 (배치도 미리보기) */
+    @SerializedName("selected_calculation_id") val selectedCalculationId: String? = null,
+    @SerializedName("selected_arrangement_id") val selectedArrangementId: String? = null,
     @SerializedName("car_seats") val carSeats: List<String>?,
     @SerializedName("retained_seats") val retainedSeats: List<String>?,
     @SerializedName("items") val items: List<PlanItemResponse>?,

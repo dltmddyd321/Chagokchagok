@@ -11,6 +11,7 @@ import com.windrr.hyundae.data.remote.model.LoadingGuideRequest
 import com.windrr.hyundae.data.remote.model.LoadingGuideResponse
 import com.windrr.hyundae.data.remote.model.PlanSort
 import com.windrr.hyundae.data.remote.model.PlanUpdateRequest
+import com.windrr.hyundae.data.remote.model.PreviewCalculation
 import com.windrr.hyundae.data.remote.model.PreviewRequest
 import com.windrr.hyundae.data.remote.model.PreviewResponse
 import com.windrr.hyundae.data.remote.model.ProductSearchRequest
@@ -57,6 +58,13 @@ interface ChagokApi {
         @Path("plan_id") planId: String,
         @Body request: PlanUpdateRequest,
     ): Response<ApiResponse<PlanResponse>>
+
+    /** 저장된 계획의 계산 결과 (배치안·좌표·짐 스냅샷). 선택한 배치안 그리기에 사용 */
+    @GET("api/v1/plans/{plan_id}/calculations/{calculation_id}")
+    suspend fun getCalculation(
+        @Path("plan_id") planId: String,
+        @Path("calculation_id") calculationId: String,
+    ): Response<ApiResponse<PreviewCalculation>>
 
     /** 계획 상세 (짐 크기까지) */
     @GET("api/v1/plans/{plan_id}")
