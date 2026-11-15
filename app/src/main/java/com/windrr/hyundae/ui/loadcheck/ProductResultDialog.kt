@@ -135,7 +135,8 @@ private fun FoundContent(found: ProductSearchState.Found, onIntent: (LoadCheckIn
                 Text(
                     text = candidate.sizeLabel,
                     color = SizeBlue,
-                    fontSize = if (maxWidth < 480.dp) 38.sp else 50.sp,
+                    // "140 × 60 × 73 cm"(약 16자)가 칸 폭에 맞도록 글자 크기를 폭에 비례 (최대 50sp)
+                    fontSize = (maxWidth.value / 9.5f).coerceIn(28f, 50f).sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 1,
                     softWrap = false,

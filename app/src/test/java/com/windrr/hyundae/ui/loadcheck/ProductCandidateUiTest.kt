@@ -49,4 +49,11 @@ class ProductCandidateUiTest {
         val full = ProductCandidateUi.from(response(120.0, 60.0, 73.0))
         assertEquals(listOf(full, partial), ProductCandidateUi.sort(listOf(partial, full)))
     }
+
+    @Test
+    fun shortName_dropsUppercaseEnglish_whenKoreanPresent() {
+        org.junit.Assert.assertEquals("락캅텐 / 아딜스 책상", ProductCandidateUi.shortName("LAGKAPTEN 락캅텐 / ADILS 아딜스 책상"))
+        org.junit.Assert.assertEquals("POÄNG 포엥 암체어".let { "포엥 암체어" }, ProductCandidateUi.shortName("POÄNG 포엥 암체어"))
+        org.junit.Assert.assertEquals("Desk Lamp", ProductCandidateUi.shortName("Desk Lamp"))
+    }
 }

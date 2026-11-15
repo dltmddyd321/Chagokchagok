@@ -124,7 +124,7 @@ class LoadCheckViewModel(application: Application) : AndroidViewModel(applicatio
                 if (w == null || d == null || h == null || !s.canAddItem) return@update s
                 val item = LoadItem(
                     key = "product-${candidate.candidateId}",
-                    name = candidate.name.take(MAX_NAME_LENGTH),
+                    name = ProductCandidateUi.shortName(candidate.name).take(MAX_NAME_LENGTH),
                     widthCm = w,
                     depthCm = d,
                     heightCm = h,

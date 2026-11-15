@@ -55,6 +55,16 @@ data class ProductCandidateUi(
         /** 브랜드를 알 수 없을 때 (요청: IKEA로 표시) */
         const val DEFAULT_BRAND = "IKEA"
 
+        /**
+         * 짐 목록용 짧은 이름: 한글 이름이 있으면 영문 대문자 상품명은 뺀다.
+         * "LAGKAPTEN 락캅텐 / ADILS 아딜스 책상" → "락캅텐 / 아딜스 책상"
+         */
+        fun shortName(name: String): String {
+            if (!name.any { it in '가'..'힣' }) return name.trim()
+            val kept = name.split(" ").filterNot { w -> w.length >= 2 && w.all { it.isUpperCase() || it in "ÄÖÜÅÆØÉ" } }
+            return kept.joinToString(" ").replace(Regex("^[/\\s]+|[/\\s]+$"), "").replace(Regex("\\s+"), " ").ifBlank { name.trim() }
+        }
+
         fun from(response: ProductCandidateResponse) = ProductCandidateUi(
             candidateId = response.candidateId,
             brand = DEFAULT_BRAND,
