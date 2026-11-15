@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -181,27 +182,91 @@ fun PlanDetailScreen(
     onPreview: () -> Unit,
     onProceed: () -> Unit,
 ) {
+    // 내비와 화면을 나눠 쓰면(1:1, 1:1:1) 폭이 좁아진다 → 세로 배치 (시안: 컴팩트 내 계획)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        if (maxWidth < COMPACT_WIDTH) {
+            CompactPlanDetail(state, onCompanions, onEdit, onPreview, onProceed)
+        } else {
+            WidePlanDetail(state, onBack, onCompanions, onEdit, onPreview, onProceed)
+        }
+    }
+}
+
+/** 제목 영역 (공통): 내계획 / 상세정보 · 계획 이름 · 안내 */
+@Composable
+private fun PlanHeader(state: PlanDetailUiState) {
+    Text(text = "내계획  /  상세정보", color = PleosTextSecondary, fontSize = 13.sp)
+    Spacer(Modifier.height(10.dp))
+    Text(
+        text = if (state.planId == null && !state.loading) "저장한 계획이 없어요" else state.name,
+        color = PleosTextPrimary,
+        fontSize = 34.sp,
+        fontWeight = FontWeight.ExtraBold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+    Spacer(Modifier.height(10.dp))
+    Text(
+        text = if (state.planId == null && !state.loading) "모바일에서 계획을 저장하면 여기에서 확인할 수 있어요" else "가져갈 짐과 탑승 인원을 확인하고 수정할 수 있습니다",
+        color = PleosTextSecondary,
+        fontSize = 16.sp,
+    )
+}
+
+/** 좁은 화면: 탑승 인원 → 가져갈 짐(스크롤) → 배치도 미리보기 · 계획 진행하기. 차 사진·뒤로 가기는 뺀다 */
+@Composable
+private fun CompactPlanDetail(
+    state: PlanDetailUiState,
+    onCompanions: (Int) -> Unit,
+    onEdit: (String) -> Unit,
+    onPreview: () -> Unit,
+    onProceed: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 20.dp),
+    ) {
+        PlanHeader(state)
+        Spacer(Modifier.height(20.dp))
+        PassengerCard(
+            total = state.totalPassengers,
+            companions = state.companions,
+            enabled = state.planId != null && !state.saving,
+            onCompanions = onCompanions,
+            compact = true,
+        )
+        Spacer(Modifier.height(20.dp))
+        ItemsCard(
+            state = state,
+            onEdit = onEdit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        )
+        Spacer(Modifier.height(20.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            BottomButton(text = "배치도 미리보기", primary = false, modifier = Modifier.weight(1f), onClick = { if (state.planId != null) onPreview() })
+            BottomButton(text = "계획 진행하기", primary = true, modifier = Modifier.weight(1f), onClick = { if (state.planId != null) onProceed() })
+        }
+    }
+}
+
+@Composable
+private fun WidePlanDetail(
+    state: PlanDetailUiState,
+    onBack: () -> Unit,
+    onCompanions: (Int) -> Unit,
+    onEdit: (String) -> Unit,
+    onPreview: () -> Unit,
+    onProceed: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 24.dp),
     ) {
-        Text(text = "내계획  /  상세정보", color = PleosTextSecondary, fontSize = 13.sp)
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = if (state.planId == null && !state.loading) "저장한 계획이 없어요" else state.name,
-            color = PleosTextPrimary,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = if (state.planId == null && !state.loading) "모바일에서 계획을 저장하면 여기에서 확인할 수 있어요" else "가져갈 짐과 탑승 인원을 확인하고 수정할 수 있습니다",
-            color = PleosTextSecondary,
-            fontSize = 16.sp,
-        )
+        PlanHeader(state)
         Spacer(Modifier.height(24.dp))
 
         Row(
@@ -327,8 +392,30 @@ private fun PlanPreviewDialog(preview: PlanPreviewState, onClose: () -> Unit) {
 
 /** 탑승 인원 N 명 / 운전자 1명 · 고정 / 동승자 [−] N [+] */
 @Composable
-private fun PassengerCard(total: Int, companions: Int, enabled: Boolean, onCompanions: (Int) -> Unit) {
+private fun PassengerCard(total: Int, companions: Int, enabled: Boolean, onCompanions: (Int) -> Unit, compact: Boolean = false) {
     val shape = RoundedCornerShape(24.dp)
+    if (compact) {
+        // 시안(컴팩트): 위 줄 탑승 인원 · N 명, 아래 줄 운전자 1명 · 고정 ↔ 동승자 스테퍼
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(Color.White)
+                .border(1.dp, CardBorder, shape)
+                .padding(horizontal = 22.dp, vertical = 20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "탑승 인원", color = PleosTextPrimary, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(text = "$total 명", color = PleosTextPrimary, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "운전자 1명 · 고정", color = PleosTextSecondary, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                CompanionStepper(companions, enabled, onCompanions, compact = true)
+            }
+        }
+        return
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -344,34 +431,46 @@ private fun PassengerCard(total: Int, companions: Int, enabled: Boolean, onCompa
         Spacer(Modifier.height(10.dp))
         Text(text = "운전자 1명 · 고정", color = PleosTextSecondary, fontSize = 17.sp)
         Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(RowBg)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = "동승자", color = PleosTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            StepButton("−", enabled = enabled && companions > 0) { onCompanions(-1) }
-            Text(
-                text = "$companions",
-                color = PleosTextPrimary,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(horizontal = 32.dp),
-            )
-            StepButton("+", enabled = enabled && companions < PlanDetailUiState.MAX_COMPANIONS) { onCompanions(1) }
-        }
+        CompanionStepper(companions, enabled, onCompanions, compact = false, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** 동승자 [−] N [+] 칸. 넓은 화면은 카드 폭에 맞추고, 컴팩트는 내용만큼 */
+@Composable
+private fun CompanionStepper(companions: Int, enabled: Boolean, onCompanions: (Int) -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(RowBg)
+            .border(1.dp, if (compact) CardBorder else Color.Transparent, RoundedCornerShape(16.dp))
+            .padding(horizontal = if (compact) 12.dp else 16.dp, vertical = if (compact) 6.dp else 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "동승자",
+            color = PleosTextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = if (compact) Modifier.padding(start = 8.dp, end = 20.dp) else Modifier.weight(1f),
+        )
+        StepButton("−", enabled = enabled && companions > 0, compact = compact) { onCompanions(-1) }
+        Text(
+            text = "$companions",
+            color = PleosTextPrimary,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(horizontal = if (compact) 22.dp else 32.dp),
+        )
+        StepButton("+", enabled = enabled && companions < PlanDetailUiState.MAX_COMPANIONS, compact = compact) { onCompanions(1) }
     }
 }
 
 @Composable
-private fun StepButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+private fun StepButton(text: String, enabled: Boolean, compact: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Box(
         modifier = Modifier
-            .size(width = 72.dp, height = 60.dp)
+            .size(width = if (compact) 56.dp else 72.dp, height = if (compact) 54.dp else 60.dp)
             .alpha(if (enabled) 1f else 0.4f)
             .shadow(3.dp, shape, ambientColor = ShadowColor, spotColor = ShadowColor)
             .clip(shape)
@@ -477,6 +576,9 @@ private fun BottomButton(text: String, primary: Boolean, modifier: Modifier = Mo
         Text(text = text, color = if (primary) Color.White else PleosNavy, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
+
+/** 이보다 좁으면 컴팩트 배치 (홈과 같은 기준) */
+private val COMPACT_WIDTH = 900.dp
 
 private val CardBorder = Color(0xFFE4EAF3)
 private val PreviewPanel = Color(0xFF0B1A33)
