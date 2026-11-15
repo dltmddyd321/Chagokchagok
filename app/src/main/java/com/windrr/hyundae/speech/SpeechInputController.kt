@@ -109,7 +109,7 @@ class SpeechInputController(context: Context, private val mode: Mode) {
         speechToText = engine
         engine.initialize(object : OnInitializeListener {
             override fun onSuccess() {
-                engine.setLocale(Locale.KOREAN)
+                engine.setLocale(Locale.KOREA) // ko_KR. "ko"만 주면 차량 온디바이스 엔진이 unsupported locale로 실패 (에뮬레이터 확인)
                 engine.addListener(resultListener)
                 if (mode == Mode.ON_DEVICE) onPrepared() else register(engine)
             }

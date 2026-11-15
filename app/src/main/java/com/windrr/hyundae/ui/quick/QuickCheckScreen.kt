@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -68,6 +69,7 @@ fun QuickCheckRoute(
         viewModel.listenAgain()
         onExit()
     }
+    DebugSpeechInput(onText = viewModel::onUtterance)
 
     when (val s = state) {
         QuickCheckState.Listening, is QuickCheckState.Searching -> ListeningScreen(
@@ -219,6 +221,8 @@ private fun ResultScreen(
                 text = product.name,
                 color = TitleNavy,
                 fontSize = 32.sp,
+                // 두 줄일 때 줄이 겹치지 않게 (좁은 화면에서 이름이 길면 두 줄)
+                lineHeight = 40.sp,
                 fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
@@ -229,7 +233,18 @@ private fun ResultScreen(
                 Text(text = it, color = BodyGray, fontSize = 19.sp, textAlign = TextAlign.Center)
             }
             Spacer(Modifier.height(24.dp))
-            Text(text = product.sizeLabel, color = SizeBlue, fontSize = 52.sp, fontWeight = FontWeight.ExtraBold)
+            // 좁은 화면(내비 분할)에서는 치수가 줄바꿈되지 않게 글자를 줄인다
+            BoxWithConstraints(contentAlignment = Alignment.Center) {
+                Text(
+                    text = product.sizeLabel,
+                    color = SizeBlue,
+                    fontSize = if (maxWidth < 560.dp) 38.sp else 52.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    softWrap = false,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
         Spacer(Modifier.height(28.dp))
         Text(text = hint, color = BodyGray, fontSize = 19.sp, textAlign = TextAlign.Center)
@@ -324,3 +339,31 @@ private val WhiteBottom = Color(0xFFF2F5FA)
 private val NavyTop = Color(0xFF24456E)
 private val NavyBottom = Color(0xFF142C4B)
 private val ShadowColor = Color(0x331B2B4B)
+
+/**
+ * 디버그 빌드 전용: 마이크 소리가 안 들어오는 에뮬레이터에서 말한 것처럼 넣기 (시연 녹화용).
+ * adb shell am broadcast -a com.windrr.hyundae.DEBUG_SPEECH --es text "이케아 락캅텐 아딜스"
+ * 출시(release) 빌드에는 등록되지 않는다.
+ */
+@Composable
+private fun DebugSpeechInput(onText: (String) -> Unit) {
+    if (!com.windrr.hyundae.BuildConfig.DEBUG) return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val latest by androidx.compose.runtime.rememberUpdatedState(onText)
+    androidx.compose.runtime.DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, intent: android.content.Intent?) {
+                intent?.getStringExtra("text")?.takeIf { it.isNotBlank() }?.let(latest)
+            }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context,
+            receiver,
+            android.content.IntentFilter(DEBUG_SPEECH_ACTION),
+            androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
+        )
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+}
+
+private const val DEBUG_SPEECH_ACTION = "com.windrr.hyundae.DEBUG_SPEECH"
