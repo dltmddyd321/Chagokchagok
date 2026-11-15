@@ -383,11 +383,7 @@ private fun ItemTile(index: Int, item: LoadItem, onRemove: () -> Unit, onEdit: (
                 .border(1.dp, TileBorder, RoundedCornerShape(14.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_item_box),
-                contentDescription = null,
-                modifier = Modifier.size(96.dp),
-            )
+            ProductImage(url = item.imageUrl, fallbackSize = 96.dp, modifier = Modifier.fillMaxSize().padding(10.dp))
         }
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

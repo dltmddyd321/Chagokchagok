@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>차곡차곡 기술 아키텍처</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1920px; height: 1200px; position: relative; overflow: hidden;
+    background: #F4F6FA;
+    font-family: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    color: #1B2433;
+  }
+  .abs { position: absolute; }
+  h1 { font-size: 44px; font-weight: 800; letter-spacing: -1px; }
+  .sub { font-size: 20px; color: #5B6575; margin-top: 8px; }
+
+  .col { border-radius: 28px; background: #fff; box-shadow: 0 6px 24px rgba(20,40,80,.08); overflow: hidden; }
+  .col-head { padding: 22px 28px 18px; color: #fff; }
+  .col-head .tag { font-size: 15px; font-weight: 700; opacity: .85; letter-spacing: .5px; }
+  .col-head .name { font-size: 30px; font-weight: 800; margin-top: 4px; letter-spacing: -.5px; }
+  .col-head .desc { font-size: 16px; opacity: .9; margin-top: 6px; }
+  .col-body { padding: 18px 22px 22px; }
+
+  .layer { border-radius: 16px; padding: 14px 16px 12px; margin-bottom: 14px; }
+  .layer-title { font-size: 15px; font-weight: 800; margin-bottom: 10px; letter-spacing: -.2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: #fff; border-radius: 10px; padding: 7px 11px; font-size: 15px; font-weight: 600; line-height: 1.25; }
+  .chip small { display: block; font-size: 12.5px; font-weight: 500; color: #6B7585; margin-top: 2px; }
+
+  /* 서브 앱 = 초록, 서버 = 남색, Pleos = 파랑 */
+  .sub-head { background: linear-gradient(135deg, #12A57A, #0E8C68); }
+  .sub-l { background: #EAF7F2; } .sub-l .layer-title { color: #0E7A5B; } .sub-l .chip { border: 1px solid #CDEBDF; }
+  .srv-head { background: linear-gradient(135deg, #283A5E, #1B2A47); }
+  .srv-l { background: #EEF1F7; } .srv-l .layer-title { color: #283A5E; }
+  .mod { background: #fff; border: 1px solid #DCE2EE; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .mod b { font-size: 17px; display: block; }
+  .mod span { font-size: 13.5px; color: #5B6575; display: block; margin-top: 3px; line-height: 1.35; }
+  .mod code { font-family: "SF Mono", Menlo, monospace; font-size: 12px; color: #2C5DA6; background: #EEF3FB; border-radius: 5px; padding: 1px 5px; }
+  .pls-head { background: linear-gradient(135deg, #2F6FE4, #2456BF); }
+  .pls-l { background: #ECF2FD; } .pls-l .layer-title { color: #2456BF; } .pls-l .chip { border: 1px solid #D3E0F8; }
+  .sdk-l { background: #1E2B45; } .sdk-l .layer-title { color: #9FC0FF; } .sdk-l .chip { background: #2B3B5C; color: #fff; border: none; } .sdk-l .chip small { color: #A9B6CE; }
+
+  .ext { border-radius: 18px; background: #fff; border: 2px dashed #C4CCDA; padding: 14px 18px; }
+  .ext b { font-size: 18px; } .ext span { display: block; font-size: 14px; color: #5B6575; margin-top: 3px; }
+  .fcm { border-color: #F2A93B; background: #FFF8EC; }
+
+  .lbl { position: absolute; font-size: 15px; font-weight: 700; text-align: center; line-height: 1.35; width: 200px; }
+  .lbl small { display: block; font-weight: 500; font-size: 12.5px; color: #5B6575; }
+  .num { display: inline-block; width: 24px; height: 24px; border-radius: 12px; color: #fff; font-size: 14px; line-height: 24px; text-align: center; margin-right: 4px; font-weight: 800; }
+
+  .foot { left: 50px; right: 50px; top: 1062px; height: 108px; border-radius: 22px; background: #fff; box-shadow: 0 4px 16px rgba(20,40,80,.06); display: flex; align-items: center; padding: 0 30px; gap: 34px; }
+  .foot .t { font-size: 17px; font-weight: 800; color: #283A5E; white-space: nowrap; }
+  .foot .items { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+  .foot .it { font-size: 14.5px; font-weight: 600; background: #F1F4F9; border-radius: 9px; padding: 6px 11px; }
+  .foot .it b { color: #2C5DA6; }
+</style>
+</head>
+<body>
+
+<!-- 제목 -->
+<div class="abs" style="left:50px; top:36px;">
+  <h1>차곡차곡 서비스 기술 아키텍처</h1>
+  <div class="sub">집에서 짐을 준비하는 <b style="color:#0E8C68">서브 앱(모바일)</b>과 차 안에서 싣고 확인하는 <b style="color:#2456BF">Pleos 앱(차량)</b>이 <b style="color:#283A5E">차곡차곡 서버</b>로 하나의 적재 계획을 공유합니다</div>
+</div>
+<div class="abs" style="right:50px; top:48px; display:flex; gap:10px; align-items:center; font-size:16px; font-weight:700; color:#5B6575;">
+  <span style="background:#EAF7F2;color:#0E7A5B;border-radius:10px;padding:8px 14px;">① 집에서 준비</span>→
+  <span style="background:#ECF2FD;color:#2456BF;border-radius:10px;padding:8px 14px;">② 차에서 확인·적재</span>→
+  <span style="background:#FFF8EC;color:#B86E00;border-radius:10px;padding:8px 14px;">③ 도착 후 짐 챙기기</span>
+</div>
+
+<!-- ───────── 서브 앱 ───────── -->
+<div class="abs col" style="left:50px; top:160px; width:540px; height:870px;">
+  <div class="col-head sub-head">
+    <div class="tag">MOBILE · ANDROID</div>
+    <div class="name">서브 앱</div>
+    <div class="desc">출발 전, 집에서 짐을 등록하고 배치를 미리 정해요</div>
+  </div>
+  <div class="col-body">
+    <div class="layer sub-l">
+      <div class="layer-title">화면 (Jetpack Compose · MVI)</div>
+      <div class="chips">
+        <div class="chip">차량·좌석 선택<small>탑승 좌석 · 카시트</small></div>
+        <div class="chip">짐 등록<small>AR 측정 · 직접 입력</small></div>
+        <div class="chip">배치 추천<small>추천안 1~3 · 탑뷰</small></div>
+        <div class="chip">적재 가이드<small>싣는 순서 안내</small></div>
+        <div class="chip">계획 저장<small>이름 · 카테고리 · 메모</small></div>
+        <div class="chip">홈<small>최근 · 즐겨찾는 계획</small></div>
+      </div>
+    </div>
+    <div class="layer sub-l">
+      <div class="layer-title">상태 관리 · 데이터</div>
+      <div class="chips">
+        <div class="chip">ViewModel<small>UiState · Intent · Effect</small></div>
+        <div class="chip">Room DB<small>내 짐 · 기본 차량(투싼)</small></div>
+        <div class="chip">Retrofit · OkHttp<small>REST · Basic 인증</small></div>
+        <div class="chip">PushTokenSync<small>FCM 토큰 등록</small></div>
+      </div>
+    </div>
+    <div class="layer sub-l" style="margin-bottom:0">
+      <div class="layer-title">기기 기능</div>
+      <div class="chips">
+        <div class="chip">ARCore<small>카메라로 짐 치수 측정</small></div>
+        <div class="chip">Firebase Messaging<small>짐 챙기기 푸시 수신</small></div>
+      </div>
+    </div>
+    <div style="margin-top:22px; border:1.5px dashed #BFE3D5; border-radius:16px; padding:14px 16px;">
+      <div class="layer-title" style="color:#0E7A5B; font-size:15px; font-weight:800; margin-bottom:10px;">주요 흐름</div>
+      <div style="display:flex; align-items:center; gap:6px; font-size:14.5px; font-weight:700; color:#1B2433; flex-wrap:wrap;">
+        <span>차량·좌석</span>→<span>짐 등록</span>→<span>배치 추천</span>→<span>적재 가이드</span>→<span style="color:#0E8C68">계획 저장 → 차로 전달</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 서버 ───────── -->
+<div class="abs col" style="left:770px; top:160px; width:380px; height:640px;">
+  <div class="col-head srv-head">
+    <div class="tag">BACKEND · REST API</div>
+    <div class="name">차곡차곡 서버</div>
+    <div class="desc">계획 저장 · 3D 적재 계산 · AI</div>
+  </div>
+  <div class="col-body" style="padding-top:16px">
+    <div class="mod"><b>적재 계획 관리</b><span>계획 생성·수정·배치안 선택<br><code>/plans</code> · revision 충돌 방지</span></div>
+    <div class="mod"><b>3D 적재 계산 엔진</b><span>짐·좌석·접는 시트로 배치안 계산<br><code>/calculations/preview</code> · 재계산</span></div>
+    <div class="mod"><b>AI 적재 가이드</b><span>배치안별 싣는 순서 문장 생성<br><code>/ai/loading-guides</code></span></div>
+    <div class="mod"><b>제품 규격 검색</b><span>제품명 → 운반 상태별 치수 (웹 검색+AI)<br><code>/products/search</code></span></div>
+    <div class="mod" style="margin-bottom:0"><b>알림</b><span>기기 등록 · 짐 챙기기 알림 발송<br><code>/notifications</code> · <code>/cargo-reminders</code></span></div>
+  </div>
+</div>
+
+<!-- FCM -->
+<div class="abs ext fcm" style="left:770px; top:850px; width:380px; height:88px;">
+  <b>Firebase Cloud Messaging</b><span>서버 → 모바일 푸시 전달</span>
+</div>
+<!-- Open-Meteo -->
+<div class="abs ext" style="left:770px; top:960px; width:380px; height:70px; padding-top:11px;">
+  <b style="font-size:16px">Open-Meteo 날씨 API</b><span style="font-size:13px">Pleos 홈 날씨 표시 (외부 공개 API)</span>
+</div>
+
+<!-- ───────── Pleos 앱 ───────── -->
+<div class="abs col" style="left:1330px; top:160px; width:540px; height:870px;">
+  <div class="col-head pls-head">
+    <div class="tag">VEHICLE · PLEOS CONNECT</div>
+    <div class="name">Pleos 앱</div>
+    <div class="desc">차 안에서 계획을 불러와 싣고, 차량 상태로 안내해요</div>
+  </div>
+  <div class="col-body">
+    <div class="layer pls-l">
+      <div class="layer-title">화면 (Jetpack Compose · MVI)</div>
+      <div class="chips">
+        <div class="chip">홈<small>최신 계획 · 날씨 · 차량 상태</small></div>
+        <div class="chip">적재 가능 여부 확인<small>짐 · 탑승 인원</small></div>
+        <div class="chip">적재 결과 · 가이드 · 완료<small>트렁크 닫힘으로 완료 감지</small></div>
+        <div class="chip">내 계획<small>짐·인원 수정 → 재계산</small></div>
+        <div class="chip">빠른 확인<small>음성으로 "이거 들어가?"</small></div>
+      </div>
+    </div>
+    <div class="layer pls-l">
+      <div class="layer-title">상태 관리 · 데이터</div>
+      <div class="chips">
+        <div class="chip">ViewModel<small>UiState · Intent · Effect</small></div>
+        <div class="chip">Room DB<small>최신 계획 · 투싼 실측 적재 공간</small></div>
+        <div class="chip">PlanAutoSync<small>시작·터치·문 열림·출발 시 동기화</small></div>
+        <div class="chip">QuickFitChecker<small>서버 없이 실측으로 판정</small></div>
+        <div class="chip">ArrivalReminderService<small>도착·하차 감지 → 알림 요청</small></div>
+      </div>
+    </div>
+    <div class="layer sdk-l" style="margin-bottom:0">
+      <div class="layer-title">Pleos Connect SDK</div>
+      <div class="chips">
+        <div class="chip">Vehicle<small>기어 · 도어 · 트렁크 · 좌석 착석</small></div>
+        <div class="chip">Speech-to-Text<small>제품명 음성 인식</small></div>
+        <div class="chip">NaviHelper<small>지도 열기</small></div>
+        <div class="chip">FusedLocation<small>현재 위치 · 도착 판단</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 연결선 ───────── -->
+<svg class="abs" style="left:0; top:0;" width="1920" height="1200">
+  <defs>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#12A57A"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2F6FE4"/></marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#E8961C"/></marker>
+    <marker id="gr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9AA4B5"/></marker>
+  </defs>
+  <!-- ① 서브앱 ↔ 서버 -->
+  <line x1="594" y1="330" x2="764" y2="330" stroke="#12A57A" stroke-width="3.5" marker-end="url(#g)"/>
+  <line x1="764" y1="380" x2="594" y2="380" stroke="#12A57A" stroke-width="3.5" stroke-dasharray="7 6" marker-end="url(#g)"/>
+  <!-- ② 서버 → Pleos -->
+  <line x1="1156" y1="330" x2="1324" y2="330" stroke="#2F6FE4" stroke-width="3.5" marker-end="url(#b)"/>
+  <!-- ③ Pleos ↔ 서버 -->
+  <line x1="1324" y1="520" x2="1156" y2="520" stroke="#2F6FE4" stroke-width="3.5" marker-end="url(#b)"/>
+  <line x1="1156" y1="570" x2="1324" y2="570" stroke="#2F6FE4" stroke-width="3.5" stroke-dasharray="7 6" marker-end="url(#b)"/>
+  <!-- ④ Pleos → 서버 (알림 요청) -->
+  <line x1="1324" y1="730" x2="1156" y2="730" stroke="#E8961C" stroke-width="3.5" marker-end="url(#o)"/>
+  <!-- 서버 → FCM -->
+  <line x1="960" y1="802" x2="960" y2="844" stroke="#E8961C" stroke-width="3.5" marker-end="url(#o)"/>
+  <!-- ⑤ FCM → 서브앱 -->
+  <line x1="766" y1="894" x2="594" y2="894" stroke="#E8961C" stroke-width="3.5" marker-end="url(#o)"/>
+  <!-- 날씨 -->
+  <line x1="1154" y1="995" x2="1324" y2="995" stroke="#9AA4B5" stroke-width="2.5" stroke-dasharray="5 5" marker-end="url(#gr)"/>
+</svg>
+
+<div class="lbl" style="left:580px; top:262px;"><span class="num" style="background:#12A57A">1</span>배치 추천 · 계획 저장<small>preview · 계획 생성 · 즐겨찾기</small></div>
+<div class="lbl" style="left:580px; top:390px;">추천 배치안 · 적재 가이드</div>
+
+<div class="lbl" style="left:1140px; top:262px;"><span class="num" style="background:#2F6FE4">2</span>최신 계획 동기화<small>저장한 계획을 차에서 바로</small></div>
+<div class="lbl" style="left:1140px; top:440px;"><span class="num" style="background:#2F6FE4">3</span>적재 계산 요청<small>가능 여부 · 재계산 · 제품 검색</small></div>
+<div class="lbl" style="left:1140px; top:580px;">배치안 · 적재 가이드<small>미리 받아 두어 바로 안내</small></div>
+
+<div class="lbl" style="left:1140px; top:662px;"><span class="num" style="background:#E8961C">4</span>짐 챙기기 알림 요청<small>목적지 도착 · 문 열림 감지</small></div>
+<div class="lbl" style="left:580px; top:826px;"><span class="num" style="background:#E8961C">5</span>푸시 알림<small>"트렁크의 짐 챙기세요"</small></div>
+
+<!-- 하단 공통 기술 -->
+<div class="abs foot">
+  <div class="t">공통 기술 · 원칙</div>
+  <div class="items">
+    <div class="it"><b>Kotlin</b> · Jetpack Compose</div>
+    <div class="it"><b>MVI</b> · StateFlow / Channel</div>
+    <div class="it"><b>Room</b> 로컬 DB (오프라인에도 계획 표시)</div>
+    <div class="it"><b>Retrofit · OkHttp</b> · Gson</div>
+    <div class="it"><b>Idempotency-Key</b> 중복 요청 방지</div>
+    <div class="it"><b>revision</b> 기반 동시 수정 충돌 방지</div>
+    <div class="it">계산은 <b>사용자 동작 1번에 요청 1번</b></div>
+    <div class="it">인증키는 <b>local.properties</b> (저장소 제외)</div>
+  </div>
+</div>
+
+</body>
+</html>

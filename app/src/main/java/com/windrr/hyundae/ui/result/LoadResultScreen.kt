@@ -67,6 +67,7 @@ import com.windrr.hyundae.ui.home.PleosNavy
 import com.windrr.hyundae.ui.home.PleosTextPrimary
 import com.windrr.hyundae.ui.home.PleosTextSecondary
 import com.windrr.hyundae.ui.loadcheck.LoadItem
+import com.windrr.hyundae.ui.loadcheck.ProductImage
 import kotlin.math.roundToInt
 
 /**
@@ -301,7 +302,7 @@ private fun ItemRow(item: LoadItem, impossible: Boolean) {
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Image(painter = painterResource(R.drawable.ic_item_box), contentDescription = null, modifier = Modifier.size(56.dp))
+        ProductImage(url = item.imageUrl, fallbackSize = 56.dp, modifier = Modifier.size(56.dp))
         Spacer(Modifier.width(18.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = item.name, color = PleosTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

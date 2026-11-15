@@ -12,6 +12,8 @@ data class LoadItem(
     val stateLabel: String? = null,
     /** 서버 transport_state 코드 (PACKAGED/ASSEMBLED/FOLDED). 직접 입력은 null */
     val transportState: String? = null,
+    /** 제품 검색으로 추가한 짐의 사진 주소. 없으면 기본 짐 이미지 */
+    val imageUrl: String? = null,
 ) {
     val sizeLabel: String get() = "$widthCm × $depthCm × $heightCm cm"
 

@@ -37,6 +37,8 @@ data class ProductCandidateUi(
     val heightCm: Double?,
     /** 출처 제목 (첫 번째) */
     val sourceTitle: String?,
+    /** 제품 사진 주소 (없으면 null → 기본 짐 이미지) */
+    val imageUrl: String? = null,
 ) {
     /** 세 치수가 모두 양수여야 바로 짐으로 추가 (아니면 직접 입력으로 보완) */
     val hasAllDimensions: Boolean
@@ -63,6 +65,7 @@ data class ProductCandidateUi(
             depthCm = response.depthCm,
             heightCm = response.heightCm,
             sourceTitle = response.sources.orEmpty().firstOrNull()?.title,
+            imageUrl = response.imageUrl?.trim()?.takeIf { it.startsWith("http") },
         )
 
         /** 치수가 모두 있는 후보를 앞으로 (같으면 서버 순서) */

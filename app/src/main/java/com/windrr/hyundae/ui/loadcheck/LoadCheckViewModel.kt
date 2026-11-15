@@ -130,6 +130,7 @@ class LoadCheckViewModel(application: Application) : AndroidViewModel(applicatio
                     heightCm = h,
                     stateLabel = candidate.transportState.shortLabel,
                     transportState = candidate.transportState.code,
+                    imageUrl = candidate.imageUrl,
                 )
                 s.copy(items = s.items + item, productSearch = null)
             }

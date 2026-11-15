@@ -32,6 +32,8 @@ data class ProductCandidateResponse(
     @SerializedName("height_cm") val heightCm: Double?,
     @SerializedName("sources") val sources: List<ProductSourceResponse>?,
     @SerializedName("requires_confirmation") val requiresConfirmation: Boolean?,
+    /** 제품 사진 주소. 없거나 안 열리면 기본 짐 이미지 */
+    @SerializedName("image_url") val imageUrl: String? = null,
 )
 
 /** 서버가 실제로 열어 확인한 출처 */

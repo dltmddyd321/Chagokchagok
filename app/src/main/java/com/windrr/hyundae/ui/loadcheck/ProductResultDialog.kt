@@ -156,7 +156,7 @@ private fun FoundContent(found: ProductSearchState.Found, onIntent: (LoadCheckIn
             }
         }
         Spacer(Modifier.width(32.dp))
-        ProductImageBox(modifier = Modifier.weight(0.9f))
+        ProductImageBox(url = candidate.imageUrl, modifier = Modifier.weight(0.9f))
     }
 }
 
@@ -176,13 +176,13 @@ private fun NotFoundContent(search: ProductSearchState.NotFound) {
             Text(text = search.message, color = PleosTextSecondary, fontSize = 18.sp, lineHeight = 26.sp)
         }
         Spacer(Modifier.width(32.dp))
-        ProductImageBox(modifier = Modifier.weight(0.9f))
+        ProductImageBox(url = null, modifier = Modifier.weight(0.9f))
     }
 }
 
-/** 제품 이미지 자리: 서버가 이미지를 주지 않아 기본 짐 이미지 */
+/** 제품 사진 (image_url). 없거나 안 열리면 기본 짐 이미지 */
 @Composable
-private fun ProductImageBox(modifier: Modifier = Modifier) {
+private fun ProductImageBox(url: String?, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = modifier
@@ -192,11 +192,13 @@ private fun ProductImageBox(modifier: Modifier = Modifier) {
             .border(1.dp, ImageBorder, shape),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            painter = painterResource(R.drawable.img_luggage_placeholder),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(150.dp),
+        ProductImage(
+            url = url,
+            fallback = R.drawable.img_luggage_placeholder,
+            fallbackSize = 150.dp,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
         )
     }
 }
