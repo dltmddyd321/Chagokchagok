@@ -219,7 +219,7 @@ private fun ResultScreen(
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                text = product.name,
+                text = ProductCandidateUi.shortName(product.name),
                 color = TitleNavy,
                 fontSize = 32.sp,
                 // 두 줄일 때 줄이 겹치지 않게 (좁은 화면에서 이름이 길면 두 줄)

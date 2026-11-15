@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -73,21 +74,22 @@ fun ProductVoiceDialog(
         }
     }
 
+    // 앱 창 폭 기준 (시안: 앱 폭의 47%). 다이얼로그 창 안에서는 폭이 작게 잡혀 밖에서 계산
+    val dialogWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp * 0.47f).dp
     Dialog(
         onDismissRequest = { viewModel.onIntent(ProductVoiceIntent.Cancel) },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
     ) {
-        ProductVoiceContent(state = state, onIntent = viewModel::onIntent)
+        ProductVoiceContent(state = state, onIntent = viewModel::onIntent, width = dialogWidth)
     }
 }
 
 @Composable
-fun ProductVoiceContent(state: ProductVoiceUiState, onIntent: (ProductVoiceIntent) -> Unit) {
+fun ProductVoiceContent(state: ProductVoiceUiState, onIntent: (ProductVoiceIntent) -> Unit, width: androidx.compose.ui.unit.Dp? = null) {
     val shape = RoundedCornerShape(32.dp)
     Column(
         modifier = Modifier
-            .widthIn(max = 860.dp)
-            .fillMaxWidth(0.66f)
+            .then(if (width != null) Modifier.width(width) else Modifier.widthIn(max = 860.dp).fillMaxWidth(0.66f))
             .clip(shape)
             .background(Brush.verticalGradient(listOf(PanelTop, PanelBottom)))
             .border(1.dp, PanelBorder, shape)

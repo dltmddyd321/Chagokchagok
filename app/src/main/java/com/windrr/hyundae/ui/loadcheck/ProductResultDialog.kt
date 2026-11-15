@@ -56,14 +56,15 @@ fun ProductResultDialog(
     onIntent: (LoadCheckIntent) -> Unit,
     onSpeakAgain: () -> Unit,
 ) {
+    // Pleos에서는 다이얼로그 창이 앱 영역보다 좁게 잡혀서 비율이 작아진다 → 앱 창 폭 기준으로 (시안: 앱 폭의 64%)
+    val dialogWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp * 0.64f).dp
     Dialog(
         onDismissRequest = { onIntent(LoadCheckIntent.CloseProductSearch) },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = 1000.dp)
-                .fillMaxWidth(0.66f)
+                .width(dialogWidth)
                 .clip(RoundedCornerShape(32.dp))
                 .background(Color.White)
                 .padding(horizontal = 44.dp, vertical = 40.dp),
@@ -116,7 +117,7 @@ private fun FoundContent(found: ProductSearchState.Found, onIntent: (LoadCheckIn
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                text = candidate.name,
+                text = ProductCandidateUi.shortName(candidate.name),
                 color = PleosTextPrimary,
                 fontSize = 30.sp,
                 // 두 줄일 때 줄이 겹치지 않게
