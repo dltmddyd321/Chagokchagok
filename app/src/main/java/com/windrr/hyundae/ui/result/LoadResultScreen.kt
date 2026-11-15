@@ -227,7 +227,11 @@ private fun ResultTitle(state: LoadResultState) {
                 withStyle(SpanStyle(color = ImpossibleRed)) { append("적재 불가능") }
             } to if (state.options.isEmpty()) "짐을 빼도 실을 수 있는 배치를 찾지 못했어요" else "현재 좌석으로는 짐을 함께 싣기 어렵습니다"
         }
-        is LoadResultState.Error -> buildAnnotatedString { append("배치를 확인하지 못했어요") } to "잠시 후 다시 시도해 주세요"
+        is LoadResultState.Error -> if (state.timedOut) {
+            buildAnnotatedString { append("제한 시간 안에 배치안을 찾지 못했어요") } to "짐이 많으면 계산이 오래 걸려요. 다시 시도하거나 짐을 줄여 보세요"
+        } else {
+            buildAnnotatedString { append("배치를 확인하지 못했어요") } to "잠시 후 다시 시도해 주세요"
+        }
     }
     Text(text = title, color = PleosTextPrimary, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
     Spacer(Modifier.height(10.dp))
@@ -679,7 +683,7 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                     Text(text = "배치 확인 중", color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 is LoadResultState.Error -> Text(
-                    text = "적재 가능한 배치를\n찾지 못했어요",
+                    text = if (state.timedOut) "제한 시간 안에\n배치안을 찾지 못했어요" else "적재 가능한 배치를\n찾지 못했어요",
                     color = Color.White,
                     fontSize = 28.sp,
                     lineHeight = 38.sp,

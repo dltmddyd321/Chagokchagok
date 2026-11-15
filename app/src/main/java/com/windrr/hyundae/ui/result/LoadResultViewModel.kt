@@ -68,7 +68,8 @@ sealed interface LoadResultState {
         val selected: ArrangementOptionUi? get() = selectedIndex?.let { options.getOrNull(it) }
     }
 
-    data class Error(val message: String) : LoadResultState
+    /** [timedOut] = 서버가 제한 시간 안에 탐색을 끝내지 못함(TIME_LIMIT). 실을 수 없다는 뜻은 아님 */
+    data class Error(val message: String, val timedOut: Boolean = false) : LoadResultState
 }
 
 /**
@@ -132,6 +133,13 @@ class LoadResultViewModel(
                     return@launch fail(result.message ?: "배치를 계산하지 못했어요.", result)
                 }
                 is ApiResult.NetworkError -> return@launch fail("네트워크 연결을 확인하고 다시 시도해 주세요.", result)
+            }
+            if (first.resultCode == RESULT_TIME_LIMIT) {
+                // 같은 키로 다시 보내면 같은 결과가 돌아온다 → 사용자가 다시 시도하면 새 계산
+                idempotencyKey = UUID.randomUUID().toString()
+                Log.i(TAG, "배치 탐색 시간 초과 (TIME_LIMIT)")
+                _state.value = LoadResultState.Error(TIME_LIMIT_MESSAGE, timedOut = true)
+                return@launch
             }
             if (first.isSuccess && first.resultCode == RESULT_LAYOUT_FOUND && !first.arrangements.isNullOrEmpty()) {
                 val options = first.arrangements.orEmpty().sortedBy { it.rank }.take(MAX_OPTIONS).map { option(it, first, current.passengerCount) }
@@ -201,10 +209,12 @@ class LoadResultViewModel(
     private companion object {
         const val TAG = "LoadResult"
         const val RESULT_LAYOUT_FOUND = "LAYOUT_FOUND"
+        const val RESULT_TIME_LIMIT = "TIME_LIMIT"
+        const val TIME_LIMIT_MESSAGE = "제한 시간 안에 배치안을 찾지 못했어요"
         const val MAX_OPTIONS = 3
 
-        /** 서버 차량 (1차는 고정) */
-        const val SERVER_VEHICLE_ID = "avante_demo"
+        /** 서버 차량 (1차는 투싼 하이브리드 고정, 서버 실측 공간) */
+        const val SERVER_VEHICLE_ID = "tucson_hybrid"
 
         val ALL_SEATS = listOf("ROW_1_LEFT", "ROW_1_RIGHT", "ROW_2_LEFT", "ROW_2_CENTER", "ROW_2_RIGHT")
 

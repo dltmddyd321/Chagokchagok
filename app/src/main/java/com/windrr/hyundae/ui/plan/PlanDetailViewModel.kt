@@ -421,6 +421,10 @@ class PlanDetailViewModel(application: Application) : AndroidViewModel(applicati
             }
             val calculationId = calculation.calculationId
             val arrangement = calculation.arrangements.orEmpty().minByOrNull { it.rank }
+            if (calculation.resultCode == "TIME_LIMIT") {
+                // 저장은 됐고 계산만 시간 초과 → 다음 진행 때 다시 계산 (사용자가 누를 때)
+                return@launch stop("제한 시간 안에 배치안을 찾지 못했어요. 잠시 후 다시 진행해 주세요.")
+            }
             if (!calculation.isSuccess || arrangement == null || calculationId == null) {
                 needsRecalc = false
                 return@launch stop("바뀐 조건으로는 짐을 모두 실을 수 없어요. 짐이나 탑승 인원을 다시 확인해 주세요.")
