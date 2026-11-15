@@ -94,6 +94,24 @@ com.windrr.hyundae
 
 투싼 실측값과 앱·서버 공간 모델은 [`docs/VEHICLE_TUCSON_HYBRID.md`](docs/VEHICLE_TUCSON_HYBRID.md)에 정리했습니다.
 
+## APK와 테스트 환경
+
+| 항목 | 내용 |
+|---|---|
+| APK | [`apk/차곡차곡_차곡차곡_release.apk`](apk/차곡차곡_차곡차곡_release.apk) (release 서명) |
+| 에뮬레이터 | Pleos Connect Emulator **v2.1.0** (AVD `Pleos_Connect_v2.1.0`, Android 14 · API 34, Automotive) |
+| 화면 규격 | 2560×1440, 160dpi. 앱 영역은 넓은 화면 1682×1210, 내비와 나눈 좁은 화면 841×1210 (폭 900dp 미만이면 세로 배치) |
+| 연동 | 모바일 [서브 앱](https://github.com/dltmddyd321/Chagokchagok_Sub)에서 저장한 계획을 차곡차곡 서버로 받아 옵니다 |
+
+APK 설치·확인 방법:
+```bash
+adb install apk/차곡차곡_차곡차곡_release.apk
+```
+- 처음 실행하면 위치(날씨)·알림 권한을 묻고, 제품명 말하기를 처음 누르면 마이크 권한을 묻습니다. 위치를 허용하지 않으면 날씨는 기본 위치(서울)로 보여 줍니다.
+- 에뮬레이터에서 음성 인식을 쓰려면 호스트 마이크를 켜고 실행합니다: `emulator -avd Pleos_Connect_v2.1.0 -allow-host-audio`
+- 기어(P단)·트렁크·좌석 착석은 에뮬레이터 Virtual Console에서 바꿔 확인합니다.
+- 서버 접속 정보는 APK에 들어 있어 따로 설정할 것이 없습니다. 소스로 빌드할 때만 아래 `local.properties`가 필요합니다.
+
 ## 실행 방법
 
 1. Android Studio에서 프로젝트를 엽니다.
@@ -105,6 +123,13 @@ com.windrr.hyundae
    CHAGOK_API_USERNAME=<Basic 인증 아이디>
    CHAGOK_API_PASSWORD=<Basic 인증 비밀번호>
    CHAGOK_NOTIFICATION_KEY=<알림 API 키>
+   ```
+   release APK를 만들 때는 서명 키 정보도 같은 파일에 넣습니다(키 파일은 저장소 밖에 둡니다). 없으면 서명 없이 빌드됩니다.
+   ```properties
+   CHAGOK_RELEASE_STORE_FILE=<키 파일 경로>
+   CHAGOK_RELEASE_STORE_PASSWORD=<키 저장소 비밀번호>
+   CHAGOK_RELEASE_KEY_ALIAS=<키 별칭>
+   CHAGOK_RELEASE_KEY_PASSWORD=<키 비밀번호>
    ```
 3. Pleos 차량 환경(에뮬레이터 또는 차량)에 설치합니다.
    ```bash

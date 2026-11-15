@@ -1,5 +1,8 @@
 package com.windrr.hyundae.data.weather
 
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import kotlin.coroutines.cancellation.CancellationException
 import ai.pleos.playground.location.fused.FusedLocation
 import ai.pleos.playground.location.fused.listener.FusedLocationListener
 import ai.pleos.playground.location.fused.model.LocationData
@@ -63,9 +66,13 @@ class WeatherRepository(private val context: Context) {
 
     /** Pleos 통합 위치 (최대 3초 기다림) */
     private suspend fun currentLocation(): Pair<Double, Double>? = withTimeoutOrNull(LOCATION_TIMEOUT_MS) {
+        // 처음 설치하면 권한 창보다 날씨 조회가 먼저 돈다 → 권한 없으면 기본 위치 (SDK가 SecurityException을 던져 앱이 죽음)
+        if (ContextCompat.checkSelfPermission(context, LOCATION_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+            return@withTimeoutOrNull null
+        }
         val fused = runCatching { FusedLocation(context).apply { initialize() } }.getOrNull() ?: return@withTimeoutOrNull null
         try {
-            suspendCancellableCoroutine { cont ->
+            runCatching<Pair<Double, Double>?> { suspendCancellableCoroutine { cont ->
                 fused.getLastKnownLocation(object : FusedLocationListener {
                     override fun onChanged(location: LocationData?) {
                         if (cont.isActive) cont.resume(location?.let { it.latitude to it.longitude })
@@ -76,7 +83,7 @@ class WeatherRepository(private val context: Context) {
                         if (cont.isActive) cont.resume(null)
                     }
                 })
-            }
+            } }.onFailure { if (it is CancellationException) throw it; Log.w(TAG, "위치 조회 실패", it) }.getOrNull()
         } finally {
             runCatching { fused.release() }
         }
@@ -111,3 +118,5 @@ class WeatherRepository(private val context: Context) {
         val DEFAULT_LOCATION = 37.5634 to 127.0369
     }
 }
+
+private const val LOCATION_PERMISSION = "pleos.car.permission.FUSED_LOCATION"

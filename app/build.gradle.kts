@@ -40,8 +40,20 @@ android {
         buildConfigField("String", "CHAGOK_NOTIFICATION_KEY", "\"${localProperty("CHAGOK_NOTIFICATION_KEY")}\"")
     }
 
+    // release 서명: 키 파일·비밀번호는 local.properties(git 제외)에서만 읽는다. 값이 없으면 서명 없이 빌드
+    val releaseStoreFile = localProperty("CHAGOK_RELEASE_STORE_FILE")
+    signingConfigs {
+        if (releaseStoreFile.isNotBlank()) create("release") {
+            storeFile = file(releaseStoreFile)
+            storePassword = localProperty("CHAGOK_RELEASE_STORE_PASSWORD")
+            keyAlias = localProperty("CHAGOK_RELEASE_KEY_ALIAS")
+            keyPassword = localProperty("CHAGOK_RELEASE_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseStoreFile.isNotBlank()) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
