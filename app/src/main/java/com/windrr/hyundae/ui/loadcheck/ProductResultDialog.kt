@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -118,6 +119,8 @@ private fun FoundContent(found: ProductSearchState.Found, onIntent: (LoadCheckIn
                 text = candidate.name,
                 color = PleosTextPrimary,
                 fontSize = 30.sp,
+                // 두 줄일 때 줄이 겹치지 않게
+                lineHeight = 38.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -127,7 +130,17 @@ private fun FoundContent(found: ProductSearchState.Found, onIntent: (LoadCheckIn
                 Text(text = it, color = PleosTextSecondary, fontSize = 18.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(24.dp))
-            Text(text = candidate.sizeLabel, color = SizeBlue, fontSize = 50.sp, fontWeight = FontWeight.ExtraBold)
+            // 치수는 한 줄로 (칸이 좁으면 글자를 줄인다)
+            BoxWithConstraints {
+                Text(
+                    text = candidate.sizeLabel,
+                    color = SizeBlue,
+                    fontSize = if (maxWidth < 480.dp) 38.sp else 50.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Text(
                 text = "가로 × 세로 × 높이 · ${candidate.transportState.label}",
@@ -142,14 +155,15 @@ private fun FoundContent(found: ProductSearchState.Found, onIntent: (LoadCheckIn
                 Spacer(Modifier.height(6.dp))
                 Text(text = "출처: $it", color = PleosTextSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            // 같은 제품이 운반 상태별로 여러 개 오면 골라 보기
-            if (found.candidates.size > 1) {
+            // 같은 제품이 운반 상태(포장·조립·접힘)별로 오면 상태마다 칩 하나 (같은 상태끼리는 첫 후보)
+            val byState = found.candidates.withIndex().distinctBy { it.value.transportState }
+            if (byState.size > 1) {
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    found.candidates.forEachIndexed { index, item ->
+                    byState.forEach { (index, item) ->
                         StateChip(
                             text = item.transportState.label,
-                            selected = index == found.selectedIndex,
+                            selected = item.transportState == candidate.transportState,
                         ) { onIntent(LoadCheckIntent.SelectProductCandidate(index)) }
                     }
                 }
@@ -237,7 +251,7 @@ private fun StateChip(text: String, selected: Boolean, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Text(text = text, color = if (selected) Color.White else PleosTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(text = text, color = if (selected) Color.White else PleosTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
 }
 

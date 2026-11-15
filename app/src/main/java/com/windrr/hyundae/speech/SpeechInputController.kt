@@ -64,7 +64,10 @@ class SpeechInputController(context: Context, private val mode: Mode) {
             fail("인식 오류: ${errorType.name}")
         }
 
-        override fun onReady() = Unit
+        // 엔진이 녹음을 시작함 → 말을 기다리는 중이므로 "듣는 중"
+        override fun onReady() {
+            _state.update { if (it.status == SpeechInputStatus.ERROR) it else it.copy(status = SpeechInputStatus.LISTENING, errorMessage = null) }
+        }
 
         override fun onUpdatedRms(rms: Double) {
             _rms.value = rms

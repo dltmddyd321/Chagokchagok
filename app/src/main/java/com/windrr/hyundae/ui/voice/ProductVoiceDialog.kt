@@ -63,6 +63,7 @@ fun ProductVoiceDialog(
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
+    com.windrr.hyundae.speech.DebugSpeechInput(onText = viewModel::debugSpeak)
     LaunchedEffect(viewModel) {
         viewModel.effect.collect { effect ->
             when (effect) {

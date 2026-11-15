@@ -69,7 +69,6 @@ fun QuickCheckRoute(
         viewModel.listenAgain()
         onExit()
     }
-    DebugSpeechInput(onText = viewModel::onUtterance)
 
     when (val s = state) {
         QuickCheckState.Listening, is QuickCheckState.Searching -> ListeningScreen(
@@ -115,6 +114,8 @@ private fun ListeningScreen(
             permission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
+    // 디버그 빌드: 말한 것처럼 넣으면 실제 인식처럼 글자가 차례로 보인 뒤 인식 완료
+    if (searchingQuery == null) com.windrr.hyundae.speech.DebugSpeechInput(onText = voiceViewModel::debugSpeak)
     LaunchedEffect(voiceViewModel) {
         voiceViewModel.effect.collect { effect ->
             when (effect) {
@@ -247,7 +248,7 @@ private fun ResultScreen(
             }
         }
         Spacer(Modifier.height(28.dp))
-        Text(text = hint, color = BodyGray, fontSize = 19.sp, textAlign = TextAlign.Center)
+        Text(text = hint.sentencePerLine(), color = BodyGray, fontSize = 19.sp, lineHeight = 28.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -340,30 +341,5 @@ private val NavyTop = Color(0xFF24456E)
 private val NavyBottom = Color(0xFF142C4B)
 private val ShadowColor = Color(0x331B2B4B)
 
-/**
- * 디버그 빌드 전용: 마이크 소리가 안 들어오는 에뮬레이터에서 말한 것처럼 넣기 (시연 녹화용).
- * adb shell am broadcast -a com.windrr.hyundae.DEBUG_SPEECH --es text "이케아 락캅텐 아딜스"
- * 출시(release) 빌드에는 등록되지 않는다.
- */
-@Composable
-private fun DebugSpeechInput(onText: (String) -> Unit) {
-    if (!com.windrr.hyundae.BuildConfig.DEBUG) return
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val latest by androidx.compose.runtime.rememberUpdatedState(onText)
-    androidx.compose.runtime.DisposableEffect(context) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(c: android.content.Context?, intent: android.content.Intent?) {
-                intent?.getStringExtra("text")?.takeIf { it.isNotBlank() }?.let(latest)
-            }
-        }
-        androidx.core.content.ContextCompat.registerReceiver(
-            context,
-            receiver,
-            android.content.IntentFilter(DEBUG_SPEECH_ACTION),
-            androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
-        )
-        onDispose { context.unregisterReceiver(receiver) }
-    }
-}
-
-private const val DEBUG_SPEECH_ACTION = "com.windrr.hyundae.DEBUG_SPEECH"
+/** "A요. B세요." → 문장마다 줄바꿈 */
+private fun String.sentencePerLine(): String = trim().replace(Regex("([.!?])\\s+"), "$1\n")

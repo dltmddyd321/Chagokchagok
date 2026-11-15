@@ -114,6 +114,23 @@ class ProductVoiceViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    /** 디버그 빌드 전용: 말한 것처럼 글자를 차례로 보여 준 뒤 인식 완료 (마이크 없는 에뮬레이터 시연 녹화용) */
+    fun debugSpeak(text: String) {
+        if (!com.windrr.hyundae.BuildConfig.DEBUG || finished) return
+        silenceJob?.cancel()
+        controller.stop()
+        viewModelScope.launch {
+            val words = text.trim().split(" ")
+            words.indices.forEach { i ->
+                _state.update { it.copy(phase = VoicePhase.LISTENING, errorMessage = null, transcript = words.take(i + 1).joinToString(" "), level = if (i % 2 == 0) 0.75f else 0.45f) }
+                kotlinx.coroutines.delay(450)
+            }
+            _state.update { it.copy(level = 0.1f) }
+            kotlinx.coroutines.delay(900)
+            finish(text.trim())
+        }
+    }
+
     private fun finish(text: String) {
         if (finished || text.isBlank()) return
         finished = true

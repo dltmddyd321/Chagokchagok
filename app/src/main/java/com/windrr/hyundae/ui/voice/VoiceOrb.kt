@@ -50,7 +50,8 @@ fun VoiceOrb(level: Float, active: Boolean, modifier: Modifier = Modifier) {
                 smoothLevel += (t - smoothLevel) * (1f - exp(-dt / if (t > smoothLevel) 0.06f else 0.24f))
                 val lightTarget = if (isActive) (0.18f + smoothLevel * 0.9f).coerceIn(0f, 1f) else 0f
                 energy += (lightTarget - energy) * (1f - exp(-dt / 0.35f))
-                phase += dt * smoothLevel * 2.1f
+                // 소리가 없어도 천천히 흐르고(물결), 말소리가 커지면 빨라진다
+                phase += dt * (IDLE_SPEED + smoothLevel * 2.1f)
             }
         }
     }
@@ -62,8 +63,11 @@ private fun DrawScope.drawOrb(level: Float, energy: Float, phase: Float) {
     val size = min(size.width, size.height)
     val cx = this.size.width / 2f
     val cy = this.size.height / 2f
-    val r = size * 0.355f * (1 + level * 0.06f)
-    val path = orbPath(cx, cy, r, level * 1.25f, phase)
+    // 숨 쉬듯 아주 살짝 커졌다 작아짐 + 소리 크기만큼 커짐
+    val breathe = 1 + sin(phase * 0.9f) * 0.012f
+    val r = size * 0.355f * (1 + level * 0.06f) * breathe
+    // 윤곽 물결: 조용할 때도 IDLE_WAVE만큼 일렁인다
+    val path = orbPath(cx, cy, r, IDLE_WAVE + level * 1.25f, phase)
 
     // 바깥 은은한 빛 (반지름 r*0.84 ~ r*1.19 사이에만)
     val haloR = r * 1.19f
@@ -90,12 +94,14 @@ private fun DrawScope.drawOrb(level: Float, energy: Float, phase: Float) {
                 end = Offset(cx + r, cy + r),
             ),
         )
-        val drift = sin(phase * 0.65f) * level * 0.13f
-        light(cx + r * 0.40f, cy + r * 0.30f, r * 1.5f, listOf(0f to "#0d51ed", 0.5f to "#0a40d0", 1f to "#081b4600"), 0.66f + energy * 0.34f)
+        // 안쪽 빛이 천천히 흘러 다닌다 (조용할 때도)
+        val drift = sin(phase * 0.65f) * (IDLE_DRIFT + level * 0.13f)
+        val sway = cos(phase * 0.47f) * IDLE_DRIFT
+        light(cx + r * (0.40f + sway), cy + r * (0.30f - drift), r * 1.5f, listOf(0f to "#0d51ed", 0.5f to "#0a40d0", 1f to "#081b4600"), 0.66f + energy * 0.34f)
         light(cx - r * 0.52f, cy - r * 0.15f, r * 1.12f, listOf(0f to "#01071f", 0.5f to "#030c30ed", 1f to "#05123600"), 1f)
         light(cx + r * (0.96f + drift), cy - r * 0.05f, r * 0.85f, listOf(0f to "#b0e7ff", 0.18f to "#63c6ff", 0.5f to "#278cffbb", 1f to "#1467d700"), 0.50f + energy * 0.36f)
         light(cx + r * 0.04f, cy - r * (1.02f - drift), r * 0.88f, listOf(0f to "#6fe1ff", 0.25f to "#25a6fbd9", 0.65f to "#147ee34d", 1f to "#145fbb00"), 0.54f + energy * 0.33f)
-        light(cx - r * 0.24f, cy + r * 1.05f, r * 0.76f, listOf(0f to "#27d5ff", 0.22f to "#0ca5fa", 0.60f to "#1558ed72", 1f to "#1642e500"), 0.61f + energy * 0.35f)
+        light(cx - r * (0.24f - sway), cy + r * 1.05f, r * 0.76f, listOf(0f to "#27d5ff", 0.22f to "#0ca5fa", 0.60f to "#1558ed72", 1f to "#1642e500"), 0.61f + energy * 0.35f)
         light(cx - r * 0.55f, cy + r * 0.34f, r * 0.63f, listOf(0f to "#1122bd82", 1f to "#131eb900"), 0.7f)
         // 안쪽으로 파인 듯한 네이비 음영 (흰 광택 없이 깊이감)
         light(cx - r * 0.28f + drift * r, cy - r * 0.09f, r * 0.85f, listOf(0f to "#020b27a6", 0.55f to "#071f4930", 1f to "#07244b00"), 0.6f)
@@ -115,6 +121,10 @@ private fun DrawScope.drawOrb(level: Float, energy: Float, phase: Float) {
         style = Stroke(width = (1f + energy * 0.6f) * density),
     )
 }
+
+private const val IDLE_SPEED = 0.9f
+private const val IDLE_WAVE = 0.55f
+private const val IDLE_DRIFT = 0.06f
 
 /** 원 둘레를 소리 크기만큼 부드럽게 흔든다 (주기 함수라 이음새 없음) */
 private fun orbPath(cx: Float, cy: Float, r: Float, amount: Float, phase: Float): Path = Path().apply {
