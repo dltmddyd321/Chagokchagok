@@ -10,6 +10,7 @@ import com.windrr.hyundae.data.remote.model.PlanResponse
 import com.windrr.hyundae.data.remote.model.LoadingGuideRequest
 import com.windrr.hyundae.data.remote.model.LoadingGuideResponse
 import com.windrr.hyundae.data.remote.model.PlanSort
+import com.windrr.hyundae.data.remote.model.PlanUpdateRequest
 import com.windrr.hyundae.data.remote.model.PreviewRequest
 import com.windrr.hyundae.data.remote.model.PreviewResponse
 import com.windrr.hyundae.data.remote.model.ProductSearchRequest
@@ -19,6 +20,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -47,6 +49,14 @@ interface ChagokApi {
         @Query("category") category: String? = null,
         @Query("favorite") favorite: Boolean? = null,
     ): Response<ApiResponse<PlanListResponse>>
+
+    /** 계획 전체 바꾸기 (짐 치수·수량·탑승 인원 수정). expected_revision 낙관적 잠금 */
+    @PUT("api/v1/plans/{plan_id}")
+    suspend fun updatePlan(
+        @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
+        @Path("plan_id") planId: String,
+        @Body request: PlanUpdateRequest,
+    ): Response<ApiResponse<PlanResponse>>
 
     /** 계획 상세 (짐 크기까지) */
     @GET("api/v1/plans/{plan_id}")

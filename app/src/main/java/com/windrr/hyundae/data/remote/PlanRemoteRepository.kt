@@ -8,6 +8,7 @@ import com.windrr.hyundae.data.remote.model.PlanResponse
 import com.windrr.hyundae.data.remote.model.LoadingGuideRequest
 import com.windrr.hyundae.data.remote.model.LoadingGuideResponse
 import com.windrr.hyundae.data.remote.model.PlanSort
+import com.windrr.hyundae.data.remote.model.PlanUpdateRequest
 import com.windrr.hyundae.data.remote.model.PreviewRequest
 import com.windrr.hyundae.data.remote.model.PreviewResponse
 import java.util.UUID
@@ -17,6 +18,13 @@ class PlanRemoteRepository(private val api: ChagokApi = ApiClient.chagokApi) {
     /** 최근 등록 순 계획 목록 */
     suspend fun recentPlans(limit: Int = 20): ApiResult<PlanListResponse> =
         apiCall { api.getPlans(limit = limit, sort = PlanSort.LATEST.value) }
+
+    /** 계획 전체 바꾸기. 수정할 때마다 새 Idempotency-Key */
+    suspend fun updatePlan(
+        planId: String,
+        request: PlanUpdateRequest,
+        idempotencyKey: String = UUID.randomUUID().toString(),
+    ): ApiResult<PlanResponse> = apiCall { api.updatePlan(idempotencyKey, planId, request) }
 
     /** 계획 상세 (짐 크기 포함) */
     suspend fun plan(planId: String): ApiResult<PlanResponse> = apiCall { api.getPlan(planId) }

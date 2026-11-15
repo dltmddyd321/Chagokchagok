@@ -501,7 +501,7 @@ private fun CheckButton(enabled: Boolean, onClick: () -> Unit) {
  * 항목을 누르면 선택되고, 숫자판 입력은 선택한 항목에 들어간다.
  */
 @Composable
-private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckIntent) -> Unit) {
+internal fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckIntent) -> Unit) {
     Dialog(
         onDismissRequest = { onIntent(LoadCheckIntent.CloseManualInput) },
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -527,8 +527,8 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
             )
             Spacer(Modifier.height(28.dp))
 
-            // 짐 이름 | 수량 (새 짐 추가일 때만)
-            if (!input.isEditing) Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+            // 짐 이름 | 수량 (새 짐 추가, 내 계획 수정)
+            if (!input.isEditing || input.editNameAndQuantity) Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 NameField(
                     name = input.name,
                     onNameChange = { onIntent(LoadCheckIntent.ManualNameChanged(it)) },
@@ -536,7 +536,7 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 )
                 QuantityField(quantity = input.quantity, onIntent = onIntent, modifier = Modifier.weight(1f))
             }
-            if (!input.isEditing) {
+            if (!input.isEditing || input.editNameAndQuantity) {
                 Spacer(Modifier.height(24.dp))
                 Text(
                     text = "짐 1개의 크기를 입력해 주세요. 같은 크기의 짐은 수량을 늘려 주세요.",
@@ -552,7 +552,7 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     // 수정: 어떤 짐인지 (이미지 · 이름 · 운반 상태)
-                    if (input.isEditing) EditingItemInfo(name = input.name, stateLabel = input.stateLabel)
+                    if (input.isEditing && !input.editNameAndQuantity) EditingItemInfo(name = input.name, stateLabel = input.stateLabel)
                     ManualField.entries.forEach { field ->
                         DimensionRow(
                             field = field,
@@ -570,7 +570,7 @@ private fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckInten
                 DialogButton("취소", primary = false, enabled = true, modifier = Modifier.weight(1f)) {
                     onIntent(LoadCheckIntent.CloseManualInput)
                 }
-                DialogButton(if (input.isEditing) "변경 저장" else "저장", primary = true, enabled = input.canSave, modifier = Modifier.weight(1f)) {
+                DialogButton(if (input.isEditing && !input.editNameAndQuantity) "변경 저장" else "저장", primary = true, enabled = input.canSave, modifier = Modifier.weight(1f)) {
                     onIntent(LoadCheckIntent.ConfirmManualInput)
                 }
             }

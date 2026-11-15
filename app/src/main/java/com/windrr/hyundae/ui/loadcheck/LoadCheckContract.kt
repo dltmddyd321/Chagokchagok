@@ -35,8 +35,32 @@ data class ManualInputState(
     val editingKey: String? = null,
     /** 수정할 짐의 운반 상태 (수정 창 위 정보 칸) */
     val stateLabel: String? = null,
+    /** 내 계획에서 여는 수정: 이름·수량까지 고칠 수 있다 (시안: 짐 치수 수정 + 짐 이름·수량) */
+    val editNameAndQuantity: Boolean = false,
 ) {
     val isEditing: Boolean get() = editingKey != null
+
+    /** 숫자판·−/+·이름·수량 입력을 반영한 새 상태 (해당 없는 의도면 그대로) */
+    fun reduce(intent: LoadCheckIntent, maxQuantity: Int = LoadCheckUiState.MAX_ITEMS): ManualInputState = when (intent) {
+        is LoadCheckIntent.SelectField -> copy(selected = intent.field)
+        is LoadCheckIntent.StepField -> {
+            val next = ((valueOf(intent.field).toIntOrNull() ?: 0) + intent.delta).coerceIn(0, LoadCheckUiState.MAX_CM)
+            with(intent.field, if (next == 0) "" else next.toString()).copy(selected = intent.field)
+        }
+        is LoadCheckIntent.KeypadDigit -> {
+            val next = (valueOf(selected) + intent.digit).trimStart('0')
+            if (next.length > 3 || (next.toIntOrNull() ?: 0) > LoadCheckUiState.MAX_CM) this else with(selected, next)
+        }
+        LoadCheckIntent.KeypadClear -> with(selected, "")
+        LoadCheckIntent.KeypadBackspace -> with(selected, valueOf(selected).dropLast(1))
+        is LoadCheckIntent.ManualNameChanged -> copy(name = intent.name.replace("\n", "").take(MAX_NAME))
+        is LoadCheckIntent.StepManualQuantity -> copy(quantity = (quantity + intent.delta).coerceIn(1, maxQuantity.coerceAtLeast(1)))
+        else -> this
+    }
+
+    private companion object {
+        const val MAX_NAME = 20
+    }
 
     private fun String.cm(): Int? = toIntOrNull()?.takeIf { it in 1..LoadCheckUiState.MAX_CM }
 

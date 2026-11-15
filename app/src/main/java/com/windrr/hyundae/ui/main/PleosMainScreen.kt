@@ -52,6 +52,7 @@ import com.windrr.hyundae.data.navi.NaviLauncher
 import com.windrr.hyundae.ui.result.LoadResultRoute
 import com.windrr.hyundae.ui.result.LoadResultInput
 import androidx.compose.runtime.remember
+import com.windrr.hyundae.ui.plan.PlanDetailRoute
 import com.windrr.hyundae.ui.quick.QuickCheckRoute
 import com.windrr.hyundae.ui.home.HomeIntent
 import com.windrr.hyundae.ui.home.HomeRoute
@@ -142,7 +143,11 @@ fun PleosMainScreen() {
                             viewModel = homeViewModel,
                         )
                     }
-                    PleosTab.PLANS -> ComingSoon("내 계획 (준비 중)")
+                    // 내 계획: Pleos에 선택된 최신 계획 상세
+                    PleosTab.PLANS -> PlanDetailRoute(
+                        onBack = { tab = PleosTab.HOME },
+                        viewModel = viewModel(key = "plan-detail"),
+                    )
                     // 빠른 확인: 제품명을 말하면 지금 차에 들어가는지 (실측 기준, 앱에서 판정)
                     PleosTab.QUICK -> QuickCheckRoute(
                         onExit = { tab = PleosTab.HOME },
