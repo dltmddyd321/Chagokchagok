@@ -656,24 +656,15 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                 .fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            val selected = (state as? LoadResultState.Result)?.selected
-            TopView(layout = selected?.layout, dimmed = selected == null)
-            // 짐 빼고 싣기: 못 싣는 짐은 위치가 없어서 탑뷰 위에 빨간 안내로
-            if (selected != null && selected.excludedNames.isNotEmpty()) {
-                Text(
-                    text = "${selected.excludedNames.joinToString(", ")} 불가능 · 공간 부족",
-                    color = ImpossibleRed,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 24.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(PanelBg.copy(alpha = 0.75f))
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
+            val result = state as? LoadResultState.Result
+            // 적재 불가능이면 고르기 전에도 "실을 수 있는 짐 + 못 싣는 짐"(첫 짐 빼기 대안)을 보여 준다 (시안)
+            val shown = result?.selected ?: result?.takeIf { !it.possible }?.options?.firstOrNull { it.excludedNames.isNotEmpty() }
+            TopView(
+                layout = shown?.layout,
+                dimmed = shown == null,
+                showArrows = result?.possible == true,
+                failedNames = shown?.excludedNames.orEmpty(),
+            )
             when (state) {
                 LoadResultState.Loading -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(
@@ -694,7 +685,7 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
                 )
-                is LoadResultState.Result -> if (state.options.isNotEmpty() && state.selected == null) {
+                is LoadResultState.Result -> if (shown == null && state.options.isNotEmpty()) {
                     Text(
                         text = "추천 방법을 선택하면\n배치를 보여드려요",
                         color = Color.White,
@@ -723,7 +714,13 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
  * 트렁크에 싣는 짐은 아래(트렁크 입구)에서 넣는 방향 ↑를 붙이고, 그림 아래에 "트렁크 입구".
  */
 @Composable
-private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean, showArrows: Boolean = true) {
+private fun TopView(
+    layout: ArrangementLayoutUi?,
+    dimmed: Boolean,
+    showArrows: Boolean = true,
+    /** 싣지 못하는 짐 (빨간 안내). 서버가 위치를 주지 않아 칸 대신 실린 짐 위에 경고 한 줄로 */
+    failedNames: List<String> = emptyList(),
+) {
     val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_top_view)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxHeight()) {
         BoxWithConstraints(
@@ -744,6 +741,34 @@ private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean, showArrows: B
             layout ?: return@BoxWithConstraints
             val scale = maxWidth / VehicleTopView.CROP_W.toFloat()
             layout.items.forEach { item -> OverlayBox(item.rect, scale, ItemFill, item.name) }
+            if (failedNames.isNotEmpty()) {
+                // 실린 짐들 바로 위 (시안: "! 2열 좌석과 겹침")
+                val top = layout.items.minOfOrNull { it.rect.top } ?: VehicleTopView.TRUNK.top
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = scale * (top - VehicleTopView.CROP_TOP) - 52.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(ImpossibleRed),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(text = "!", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "${failedNames.joinToString(", ")} 불가능 · 공간 부족",
+                        color = AlertRed,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+            }
             if (showArrows) layout.items.filter { it.spaceKind == ArrangementLayoutMapper.KIND_TRUNK }.forEach { item ->
                 Text(
                     text = "↑",
@@ -791,6 +816,7 @@ private fun OverlayBox(rect: PxRect, scale: Dp, fill: Color, label: String, stro
 private val CountBlue = Color(0xFF2E6BD6)
 private val PossibleGreen = Color(0xFF2E9E86)
 private val ImpossibleRed = Color(0xFFE02424)
+private val AlertRed = Color(0xFFFF3B47)
 private val CardBorder = Color(0xFFE4EAF3)
 private val SelectedBorder = Color(0xFF3B82F6)
 private val SelectedBg = Color(0xFFEFF5FF)
