@@ -1,7 +1,8 @@
 package com.windrr.hyundae.data.remote
 
-import com.windrr.hyundae.data.remote.model.CalculationRequest
-import com.windrr.hyundae.data.remote.model.CalculationResponse
+import com.windrr.hyundae.data.remote.model.CalculationCreateRequest
+import com.windrr.hyundae.data.remote.model.PlanSelectionRequest
+import com.windrr.hyundae.data.remote.model.PlanSelectionResponse
 import com.windrr.hyundae.data.remote.model.CargoReminderRequest
 import com.windrr.hyundae.data.remote.model.CargoReminderResponse
 import com.windrr.hyundae.data.remote.model.PlanCreateRequest
@@ -33,12 +34,21 @@ interface ChagokApi {
         @Body request: PlanCreateRequest,
     ): Response<ApiResponse<PlanResponse>>
 
+    /** 저장된 계획 다시 계산 (짐·인원 수정 후). 응답 = 계산 결과(calculation_id·배치안) */
     @POST("api/v1/plans/{plan_id}/calculations")
-    suspend fun createCalculation(
+    suspend fun recalculate(
         @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
         @Path("plan_id") planId: String,
-        @Body request: CalculationRequest,
-    ): Response<ApiResponse<CalculationResponse>>
+        @Body request: CalculationCreateRequest,
+    ): Response<ApiResponse<PreviewCalculation>>
+
+    /** 사용할 배치안 정하기 */
+    @PUT("api/v1/plans/{plan_id}/selection")
+    suspend fun selectArrangement(
+        @Header(IDEMPOTENCY_KEY_HEADER) idempotencyKey: String,
+        @Path("plan_id") planId: String,
+        @Body request: PlanSelectionRequest,
+    ): Response<ApiResponse<PlanSelectionResponse>>
 
     /** 계획 목록 (짐은 이름·개수 요약만). sort latest|favorite */
     @GET("api/v1/plans")

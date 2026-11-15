@@ -53,6 +53,7 @@ import com.windrr.hyundae.ui.result.LoadResultRoute
 import com.windrr.hyundae.ui.result.LoadResultInput
 import androidx.compose.runtime.remember
 import com.windrr.hyundae.ui.plan.PlanDetailRoute
+import com.windrr.hyundae.ui.plan.PlanDetailViewModel
 import com.windrr.hyundae.ui.quick.QuickCheckRoute
 import com.windrr.hyundae.ui.home.HomeIntent
 import com.windrr.hyundae.ui.home.HomeRoute
@@ -74,6 +75,8 @@ fun PleosMainScreen() {
     var loadCheckId by rememberSaveable { mutableStateOf<Long?>(null) }
     // 적재 결과 화면 (null = 짐과 탑승 인원 화면). 확인을 누를 때마다 새 키 → 새 계산
     var loadResult by remember { mutableStateOf<Pair<Long, LoadResultInput>?>(null) }
+    // 내 계획은 앱 시작 때부터 만들어 둔다 → 선택 배치안·적재 안내를 미리 받아 두어 계획 진행하기가 바로 열림
+    val planDetailViewModel: PlanDetailViewModel = viewModel(key = "plan-detail")
     val context = LocalContext.current
     val homeViewModel: HomeViewModel = viewModel()
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
@@ -146,7 +149,9 @@ fun PleosMainScreen() {
                     // 내 계획: Pleos에 선택된 최신 계획 상세
                     PleosTab.PLANS -> PlanDetailRoute(
                         onBack = { tab = PleosTab.HOME },
-                        viewModel = viewModel(key = "plan-detail"),
+                        trunkOpen = homeState.trunkOpen,
+                        onOpenMap = { NaviLauncher.openMap(context) },
+                        viewModel = planDetailViewModel,
                     )
                     // 빠른 확인: 제품명을 말하면 지금 차에 들어가는지 (실측 기준, 앱에서 판정)
                     PleosTab.QUICK -> QuickCheckRoute(

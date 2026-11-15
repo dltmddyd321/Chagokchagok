@@ -76,6 +76,8 @@ data class PreviewResponse(
 )
 
 data class PreviewCalculation(
+    /** 저장된 계획 계산이면 있음 (미리보기는 null) */
+    @SerializedName("calculation_id") val calculationId: String? = null,
     @SerializedName("is_success") val isSuccess: Boolean,
     /** LAYOUT_FOUND, EXCLUSION_OPTIONS_FOUND, NO_LAYOUT_FOUND, TIME_LIMIT, NO_VALID_SEAT_CONFIGURATION, STATE_REQUIRED */
     @SerializedName("result_code") val resultCode: String,

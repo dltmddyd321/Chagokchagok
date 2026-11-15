@@ -2,10 +2,15 @@ package com.windrr.hyundae.data.remote.model
 
 import com.google.gson.annotations.SerializedName
 
-/** POST /api/v1/ai/loading-guides 요청. 새 계획은 미리보기 id + 배치 id만 보낸다 */
+/**
+ * POST /api/v1/ai/loading-guides 요청.
+ * 새 계획(미리보기)은 preview_id + arrangement_id, 저장된 계획은 plan_id + calculation_id + arrangement_id. 안 쓰는 칸은 null(전송 안 함)
+ */
 data class LoadingGuideRequest(
-    @SerializedName("preview_id") val previewId: String,
+    @SerializedName("preview_id") val previewId: String? = null,
     @SerializedName("arrangement_id") val arrangementId: String,
+    @SerializedName("plan_id") val planId: String? = null,
+    @SerializedName("calculation_id") val calculationId: String? = null,
 )
 
 data class LoadingGuideResponse(

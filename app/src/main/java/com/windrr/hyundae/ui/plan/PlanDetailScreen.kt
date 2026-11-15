@@ -24,6 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.activity.compose.BackHandler
+import com.windrr.hyundae.ui.result.LoadCompleteScreen
+import com.windrr.hyundae.ui.result.LoadCompletion
+import com.windrr.hyundae.ui.result.LoadGuideScreen
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -58,6 +65,10 @@ import com.windrr.hyundae.ui.loadcheck.ManualInputDialog
 @Composable
 fun PlanDetailRoute(
     onBack: () -> Unit,
+    /** 차량 트렁크 열림 여부 (Vehicle SDK). 가이드에서 열렸다가 닫히면 적재 완료 */
+    trunkOpen: Boolean?,
+    /** 적재 완료 > 지도 열기 */
+    onOpenMap: () -> Unit,
     viewModel: PlanDetailViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -68,15 +79,97 @@ fun PlanDetailRoute(
             viewModel.dismissMessage()
         }
     }
-    PlanDetailScreen(
-        state = state,
-        onBack = onBack,
-        onCompanions = viewModel::changeCompanions,
-        onEdit = viewModel::openEdit,
-        onPreview = viewModel::openPreview,
-    )
-    state.editing?.let { ManualInputDialog(input = it, onIntent = viewModel::onEditIntent) }
-    state.preview?.let { PlanPreviewDialog(preview = it, onClose = viewModel::closePreview) }
+    when (val run = state.run) {
+        is PlanRunState.Preparing -> {
+            BackHandler {}
+            PlanPreparingScreen(run.text)
+        }
+        is PlanRunState.Guide -> {
+            BackHandler(onBack = viewModel::closeRun)
+            // 트렁크가 "열렸다가 닫히면" 적재 완료. 가이드에 들어올 때 이미 닫혀 있던 건 완료로 보지 않는다
+            var trunkWasOpen by remember { mutableStateOf(false) }
+            LaunchedEffect(trunkOpen) {
+                when (trunkOpen) {
+                    true -> trunkWasOpen = true
+                    false -> if (trunkWasOpen) viewModel.completeRun(LoadCompletion.TRUNK_CLOSED)
+                    null -> Unit
+                }
+            }
+            LoadGuideScreen(
+                option = run.option,
+                steps = run.steps,
+                onChangeCondition = viewModel::closeRun,
+                onFinished = { viewModel.completeRun(LoadCompletion.BUTTON) },
+            )
+        }
+        is PlanRunState.Complete -> {
+            BackHandler(onBack = viewModel::closeRun)
+            LoadCompleteScreen(
+                option = run.option,
+                items = run.items,
+                completion = run.completion,
+                onGoHome = {
+                    viewModel.closeRun()
+                    onBack()
+                },
+                onOpenMap = onOpenMap,
+            )
+        }
+        null -> {
+            PlanDetailScreen(
+                state = state,
+                onBack = onBack,
+                onCompanions = viewModel::changeCompanions,
+                onEdit = viewModel::openEdit,
+                onPreview = viewModel::openPreview,
+                onProceed = viewModel::proceed,
+            )
+            state.editing?.let { ManualInputDialog(input = it, onIntent = viewModel::onEditIntent) }
+            state.preview?.let { PlanPreviewDialog(preview = it, onClose = viewModel::closePreview) }
+            if (state.confirmProceed) {
+                ProceedConfirmDialog(onCancel = viewModel::dismissConfirm, onConfirm = viewModel::confirmProceed)
+            }
+        }
+    }
+}
+
+/** 변경한 계획 저장·재계산·안내 받는 중 (전체 로딩) */
+@Composable
+private fun PlanPreparingScreen(text: String) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(color = PleosNavy, strokeWidth = 4.dp, modifier = Modifier.size(56.dp))
+        Spacer(Modifier.height(28.dp))
+        Text(text = text, color = PleosTextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(10.dp))
+        Text(text = "잠시만 기다려 주세요", color = PleosTextSecondary, fontSize = 17.sp)
+    }
+}
+
+/** 변경한 계획으로 진행할까요? (취소 / 저장하고 진행) */
+@Composable
+private fun ProceedConfirmDialog(onCancel: () -> Unit, onConfirm: () -> Unit) {
+    Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            modifier = Modifier
+                .width(560.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color.White)
+                .padding(horizontal = 40.dp, vertical = 36.dp),
+        ) {
+            Text(text = "변경한 계획으로 진행할까요?", color = PleosTextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(12.dp))
+            Text(text = "변경한 인원과 짐에 맞춰 배치를 다시 계산해요.", color = PleosTextSecondary, fontSize = 18.sp)
+            Spacer(Modifier.height(32.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                BottomButton(text = "취소", primary = false, modifier = Modifier.weight(1f), onClick = onCancel)
+                BottomButton(text = "저장하고 진행", primary = true, modifier = Modifier.weight(1f), onClick = onConfirm)
+            }
+        }
+    }
 }
 
 @Composable
@@ -86,6 +179,7 @@ fun PlanDetailScreen(
     onCompanions: (Int) -> Unit,
     onEdit: (String) -> Unit,
     onPreview: () -> Unit,
+    onProceed: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -157,8 +251,7 @@ fun PlanDetailScreen(
             }
             Row(modifier = Modifier.weight(0.58f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 BottomButton(text = "배치도 미리보기", primary = false, modifier = Modifier.weight(1f), onClick = { if (state.planId != null) onPreview() })
-                // TODO: 계획 진행하기 동작은 추후 (지금은 버튼만)
-                BottomButton(text = "계획 진행하기", primary = true, modifier = Modifier.weight(1f), onClick = {})
+                BottomButton(text = "계획 진행하기", primary = true, modifier = Modifier.weight(1f), onClick = { if (state.planId != null) onProceed() })
             }
         }
     }

@@ -1,7 +1,8 @@
 package com.windrr.hyundae.data.remote
 
-import com.windrr.hyundae.data.remote.model.CalculationRequest
-import com.windrr.hyundae.data.remote.model.CalculationResponse
+import com.windrr.hyundae.data.remote.model.CalculationCreateRequest
+import com.windrr.hyundae.data.remote.model.PlanSelectionRequest
+import com.windrr.hyundae.data.remote.model.PlanSelectionResponse
 import com.windrr.hyundae.data.remote.model.PlanCreateRequest
 import com.windrr.hyundae.data.remote.model.PlanListResponse
 import com.windrr.hyundae.data.remote.model.PlanResponse
@@ -39,11 +40,29 @@ class PlanRemoteRepository(private val api: ChagokApi = ApiClient.chagokApi) {
         idempotencyKey: String = UUID.randomUUID().toString(),
     ): ApiResult<PlanResponse> = apiCall { api.createPlan(idempotencyKey, request) }
 
-    suspend fun createCalculation(
+    /** 저장된 계획 다시 계산. 사용자 동작마다 새 Idempotency-Key */
+    suspend fun recalculate(
         planId: String,
-        request: CalculationRequest,
+        request: CalculationCreateRequest,
         idempotencyKey: String = UUID.randomUUID().toString(),
-    ): ApiResult<CalculationResponse> = apiCall { api.createCalculation(idempotencyKey, planId, request) }
+    ): ApiResult<PreviewCalculation> = apiCall { api.recalculate(idempotencyKey, planId, request) }
+
+    /** 사용할 배치안 정하기 */
+    suspend fun selectArrangement(
+        planId: String,
+        request: PlanSelectionRequest,
+        idempotencyKey: String = UUID.randomUUID().toString(),
+    ): ApiResult<PlanSelectionResponse> = apiCall { api.selectArrangement(idempotencyKey, planId, request) }
+
+    /** 저장된 계획의 배치안 적재 안내 */
+    suspend fun loadingGuideForPlan(
+        planId: String,
+        calculationId: String,
+        arrangementId: String,
+        idempotencyKey: String = UUID.randomUUID().toString(),
+    ): ApiResult<LoadingGuideResponse> = apiCall {
+        api.loadingGuide(idempotencyKey, LoadingGuideRequest(arrangementId = arrangementId, planId = planId, calculationId = calculationId))
+    }
 
     /** 배치 미리 계산. 재시도엔 같은 [idempotencyKey], 새 계산은 새 키 */
     suspend fun previewCalculation(request: PreviewRequest, idempotencyKey: String): ApiResult<PreviewResponse> =
@@ -55,5 +74,5 @@ class PlanRemoteRepository(private val api: ChagokApi = ApiClient.chagokApi) {
         arrangementId: String,
         idempotencyKey: String = UUID.randomUUID().toString(),
     ): ApiResult<LoadingGuideResponse> =
-        apiCall { api.loadingGuide(idempotencyKey, LoadingGuideRequest(previewId, arrangementId)) }
+        apiCall { api.loadingGuide(idempotencyKey, LoadingGuideRequest(previewId = previewId, arrangementId = arrangementId)) }
 }
