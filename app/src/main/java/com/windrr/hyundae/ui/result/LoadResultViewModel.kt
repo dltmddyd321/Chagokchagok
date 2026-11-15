@@ -142,7 +142,7 @@ class LoadResultViewModel(
                 return@launch
             }
             if (first.isSuccess && first.resultCode == RESULT_LAYOUT_FOUND && !first.arrangements.isNullOrEmpty()) {
-                val options = first.arrangements.orEmpty().sortedBy { it.rank }.take(MAX_OPTIONS).map { option(it, first, current.passengerCount) }
+                val options = first.arrangements.orEmpty().sortedBy { it.rank }.map { option(it, first, current.passengerCount) }.distinctSimilar()
                 _state.value = LoadResultState.Result(
                     possible = true,
                     options = options,
@@ -154,7 +154,7 @@ class LoadResultViewModel(
             }
             Log.i(TAG, "적재 불가 ${first.resultCode}, 짐 빼기 대안 ${first.alternatives?.size ?: 0}개")
             // 불가능일 때 추천 방법 = 서버가 같이 준 짐 빼기 대안
-            val options = first.alternatives.orEmpty().sortedBy { it.rank }.take(MAX_OPTIONS).map { option(it, first, current.passengerCount) }
+            val options = first.alternatives.orEmpty().sortedBy { it.rank }.map { option(it, first, current.passengerCount) }.distinctSimilar()
             _state.value = LoadResultState.Result(possible = false, options = options)
         }
     }
@@ -193,6 +193,10 @@ class LoadResultViewModel(
             )
         }
     }
+
+    /** 화면에 똑같이 보이는 방법(제목·설명 같음)은 하나만 보여 준다. 서버는 좌표만 다른 대안을 여러 개 줄 수 있다 */
+    private fun List<ArrangementOptionUi>.distinctSimilar(): List<ArrangementOptionUi> =
+        distinctBy { it.title to it.subtitle }.take(MAX_OPTIONS)
 
     private fun fail(message: String, result: ApiResult<*>) {
         Log.w(TAG, "배치 계산 실패: $result")

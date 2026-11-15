@@ -498,13 +498,15 @@ private fun CheckButton(enabled: Boolean, onClick: () -> Unit) {
  */
 @Composable
 internal fun ManualInputDialog(input: ManualInputState, onIntent: (LoadCheckIntent) -> Unit) {
+    // 다이얼로그 창은 앱 영역보다 좁게 잡히므로 화면 폭 기준으로 직접 정함 (시안: 화면 폭의 약 78%)
+    val dialogWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp * 0.78f).dp
     Dialog(
         onDismissRequest = { onIntent(LoadCheckIntent.CloseManualInput) },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.78f)
+                .width(dialogWidth)
                 .clip(RoundedCornerShape(32.dp))
                 .background(Color.White)
                 .padding(horizontal = 44.dp, vertical = 40.dp),
