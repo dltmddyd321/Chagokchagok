@@ -98,14 +98,14 @@ com.windrr.hyundae
 
 | 항목 | 내용 |
 |---|---|
-| APK | [`apk/차곡차곡_차곡차곡_release.apk`](apk/차곡차곡_차곡차곡_release.apk) (release 서명) |
+| APK | [`apk/차곡_차곡차곡_release.apk`](apk/차곡_차곡차곡_release.apk) (release 서명) |
 | 에뮬레이터 | Pleos Connect Emulator **v2.1.0** (AVD `Pleos_Connect_v2.1.0`, Android 14 · API 34, Automotive) |
 | 화면 규격 | 2560×1440, 160dpi. 앱 영역은 넓은 화면 1682×1210, 내비와 나눈 좁은 화면 841×1210 (폭 900dp 미만이면 세로 배치) |
 | 연동 | 모바일 [서브 앱](https://github.com/dltmddyd321/Chagokchagok_Sub)에서 저장한 계획을 차곡차곡 서버로 받아 옵니다 |
 
 APK 설치·확인 방법:
 ```bash
-adb install apk/차곡차곡_차곡차곡_release.apk
+adb install apk/차곡_차곡차곡_release.apk
 ```
 - 처음 실행하면 위치(날씨)·알림 권한을 묻고, 제품명 말하기를 처음 누르면 마이크 권한을 묻습니다. 위치를 허용하지 않으면 날씨는 기본 위치(서울)로 보여 줍니다.
 - 에뮬레이터에서 음성 인식을 쓰려면 호스트 마이크를 켜고 실행합니다: `emulator -avd Pleos_Connect_v2.1.0 -allow-host-audio`
