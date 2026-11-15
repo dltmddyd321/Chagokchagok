@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -63,6 +64,116 @@ fun HomeRoute(
 
 @Composable
 fun HomeScreen(
+    state: HomeUiState,
+    onOpenPlans: () -> Unit,
+    onEnterShareCode: () -> Unit,
+    onCheckFit: () -> Unit,
+    onRefreshWeather: () -> Unit,
+) {
+    // 내비와 화면을 나눠 쓰면(1:1, 1:1:1) 폭이 좁아진다 → 세로 배치 (시안: 좁은 홈)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        if (maxWidth < NARROW_WIDTH) {
+            NarrowHome(state, onOpenPlans, onEnterShareCode, onRefreshWeather)
+        } else {
+            WideHome(state, onOpenPlans, onEnterShareCode, onCheckFit, onRefreshWeather)
+        }
+    }
+}
+
+/** 좁은 홈: 인사 · 날씨 한 줄 · 최신 계획 · 공유받은 배치 (세로) */
+@Composable
+private fun NarrowHome(
+    state: HomeUiState,
+    onOpenPlans: () -> Unit,
+    onEnterShareCode: () -> Unit,
+    onRefreshWeather: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 24.dp),
+    ) {
+        Text(text = "안녕하세요. ${state.userName}님!", color = PleosTextPrimary, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "차에 실을 제품을 검색하거나, 모바일에서 미리 저장한 배치를 불러올 수 있어요.",
+            color = PleosTextSecondary,
+            fontSize = 15.sp,
+        )
+        Spacer(Modifier.height(18.dp))
+        WeatherBar(weather = state.weather, loading = state.weatherLoading, onClick = onRefreshWeather)
+        Spacer(Modifier.height(18.dp))
+        LatestPlanCard(
+            plan = state.latestPlan,
+            onOpenPlans = onOpenPlans,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1.25f),
+        )
+        Spacer(Modifier.height(18.dp))
+        SharedPlanCard(
+            onEnterShareCode = onEnterShareCode,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(0.55f),
+        )
+    }
+}
+
+/** 날씨 한 줄 (좁은 홈): 구름 · 현재 위치 · 성동구 · 흐림 | 외기 18°C */
+@Composable
+private fun WeatherBar(weather: WeatherInfo?, loading: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = ShadowColor, spotColor = ShadowColor)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White.copy(alpha = 0.9f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        WeatherIcon(type = weather?.conditionType ?: WeatherType.CLOUDY, modifier = Modifier.size(width = 50.dp, height = 46.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = weather?.district?.let { "현재 위치 · $it" } ?: "현재 위치",
+            color = PleosTextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = when {
+                weather != null -> weather.condition
+                loading -> "불러오는 중"
+                else -> "-"
+            },
+            color = PleosTextSecondary,
+            fontSize = 17.sp,
+        )
+        Spacer(Modifier.width(18.dp))
+        Box(
+            Modifier
+                .width(1.dp)
+                .height(32.dp)
+                .background(DividerColor),
+        )
+        Spacer(Modifier.width(18.dp))
+        Text(text = "외기", color = PleosTextSecondary, fontSize = 15.sp)
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = weather?.let { "${it.temperatureC}°C" } ?: "--°C",
+            color = PleosTextPrimary,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold,
+        )
+    }
+}
+
+/** 넓은 홈 (전체 화면) */
+@Composable
+private fun WideHome(
     state: HomeUiState,
     onOpenPlans: () -> Unit,
     onEnterShareCode: () -> Unit,
@@ -223,7 +334,8 @@ private fun LatestPlanCard(plan: LatestPlanUi?, onOpenPlans: () -> Unit, modifie
             .clickable(onClick = onOpenPlans),
     ) {
         Image(
-            painter = painterResource(R.drawable.img_banner_weekend_outing_lakeside),
+            // 계획이 있으면 호숫가 투싼, 없으면 시안의 세단 배너
+            painter = painterResource(if (plan != null) R.drawable.img_banner_weekend_outing_lakeside else R.drawable.img_banner_avante_coastal),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alignment = Alignment.Center,
@@ -274,7 +386,7 @@ private fun LatestPlanCard(plan: LatestPlanUi?, onOpenPlans: () -> Unit, modifie
                 PlanSummaryPanel(plan)
             } else {
                 Text(
-                    text = "저장한 배치 계획이\n없어요",
+                    text = "저장한 배치 계획이\n없습니다",
                     color = Color.White,
                     fontSize = 34.sp,
                     lineHeight = 44.sp,
@@ -282,11 +394,25 @@ private fun LatestPlanCard(plan: LatestPlanUi?, onOpenPlans: () -> Unit, modifie
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    text = "모바일에서 계획을 저장하면\n차량에서 바로 확인할 수 있어요",
+                    text = "모바일에서 저장한 계획을\n차량에서 확인할 수 있습니다",
                     color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
                 )
+                Spacer(Modifier.weight(1f))
+                // 반투명 유리 버튼
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.55f)
+                        .height(64.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .border(1.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                        .clickable(onClick = onOpenPlans),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "내 계획 보기", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -435,6 +561,9 @@ private fun CheckFitCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** 이 폭보다 좁으면 세로 배치 (내비와 화면 분할) */
+private val NARROW_WIDTH = 900.dp
 
 internal val PleosNavy = Color(0xFF16305A)
 internal val PleosTextPrimary = Color(0xFF111A2E)

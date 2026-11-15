@@ -16,6 +16,8 @@
     <uses-permission android:name="pleos.car.permission.CAR_SEATS" />
     <!-- SDK별 필수 퍼미션 (선언 안 하면 호출 시 SecurityException) -->
     <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
+    <!-- 적재 완료 > 지도 열기: 내비 화면을 앞으로 (NaviHelper.requestNavigationScreen) -->
+    <uses-permission android:name="pleos.car.permission.NAVI_CUSTOM_MAP" />
     <uses-permission android:name="pleos.car.permission.FUSED_LOCATION" />
     <uses-permission android:name="pleos.car.permission.STT_SERVICE" />
 

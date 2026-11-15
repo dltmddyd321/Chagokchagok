@@ -40,6 +40,9 @@ data class ArrangementOptionUi(
     val passengerCount: Int = 0,
 )
 
+/** 적재 완료 계기 */
+enum class LoadCompletion { BUTTON, TRUNK_CLOSED }
+
 sealed interface LoadResultState {
     data object Loading : LoadResultState
 
@@ -57,6 +60,8 @@ sealed interface LoadResultState {
         val guides: Map<String, List<GuideStepUi>?> = emptyMap(),
         /** 이 조건으로 진행 → 적재 가이드 화면 */
         val proceeding: Boolean = false,
+        /** 적재 완료 (가이드에서 "짐을 다 실었어요" 또는 트렁크 닫힘 감지) */
+        val completion: LoadCompletion? = null,
     ) : LoadResultState {
         val selectedGuide: List<GuideStepUi>? get() = selected?.let { guides[it.layout.arrangementId] }
 
@@ -101,6 +106,11 @@ class LoadResultViewModel(
     /** 이 조건으로 진행 → 적재 가이드 */
     fun proceed() = _state.update { s ->
         if (s is LoadResultState.Result && s.selected != null) s.copy(proceeding = true) else s
+    }
+
+    /** 가이드 → 적재 완료 */
+    fun complete(by: LoadCompletion) = _state.update { s ->
+        if (s is LoadResultState.Result && s.proceeding && s.completion == null) s.copy(completion = by) else s
     }
 
     /** 가이드의 조건 변경 → 결과 화면 */

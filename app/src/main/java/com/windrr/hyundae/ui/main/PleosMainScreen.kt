@@ -48,6 +48,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.windrr.hyundae.R
+import com.windrr.hyundae.data.navi.NaviLauncher
 import com.windrr.hyundae.ui.result.LoadResultRoute
 import com.windrr.hyundae.ui.result.LoadResultInput
 import androidx.compose.runtime.remember
@@ -72,6 +73,7 @@ fun PleosMainScreen() {
     var loadCheckId by rememberSaveable { mutableStateOf<Long?>(null) }
     // 적재 결과 화면 (null = 짐과 탑승 인원 화면). 확인을 누를 때마다 새 키 → 새 계산
     var loadResult by remember { mutableStateOf<Pair<Long, LoadResultInput>?>(null) }
+    val context = LocalContext.current
     val homeViewModel: HomeViewModel = viewModel()
     val homeState by homeViewModel.state.collectAsStateWithLifecycle()
 
@@ -109,6 +111,9 @@ fun PleosMainScreen() {
                         val (resultId, input) = loadResult!!
                         LoadResultRoute(
                             input = input,
+                            trunkOpen = homeState.trunkOpen,
+                            // 적재 완료 > 지도 열기: 내비를 앞으로 (우리 앱은 닫지 않음)
+                            onOpenMap = { NaviLauncher.openMap(context) },
                             // 닫기 → 짐과 탑승 인원 화면 (입력값 그대로)
                             onClose = { loadResult = null },
                             // 적재 가이드에서 짐을 다 실었으면 홈으로

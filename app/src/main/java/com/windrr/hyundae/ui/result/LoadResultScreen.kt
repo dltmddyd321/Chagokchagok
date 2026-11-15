@@ -29,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -74,6 +77,10 @@ import kotlin.math.roundToInt
 @Composable
 fun LoadResultRoute(
     input: LoadResultInput,
+    /** 차량 트렁크 열림 여부 (Vehicle SDK). 가이드 화면에서 열렸다가 닫히면 적재 완료 */
+    trunkOpen: Boolean?,
+    /** 적재 완료 > 지도 열기 */
+    onOpenMap: () -> Unit,
     onClose: () -> Unit,
     /** 적재 가이드에서 "짐을 다 실었어요" */
     onFinished: () -> Unit,
@@ -83,13 +90,36 @@ fun LoadResultRoute(
     LaunchedEffect(viewModel) { viewModel.start(input) }
     val result = state as? LoadResultState.Result
     // 가이드 화면에서 뒤로 → 결과 화면, 결과 화면에서 뒤로 → 짐과 탑승 인원
-    BackHandler { if (result?.proceeding == true) viewModel.backToResult() else onClose() }
-    if (result != null && result.proceeding && result.selected != null) {
+    BackHandler {
+        when {
+            result?.completion != null -> onFinished()
+            result?.proceeding == true -> viewModel.backToResult()
+            else -> onClose()
+        }
+    }
+    if (result != null && result.completion != null && result.selected != null) {
+        LoadCompleteScreen(
+            option = result.selected!!,
+            items = input.items,
+            completion = result.completion,
+            onGoHome = onFinished,
+            onOpenMap = onOpenMap,
+        )
+    } else if (result != null && result.proceeding && result.selected != null) {
+        // 트렁크가 "열렸다가 닫히면" 적재 완료. 가이드에 들어올 때 이미 닫혀 있던 건 완료로 보지 않는다
+        var trunkWasOpen by remember { mutableStateOf(false) }
+        LaunchedEffect(trunkOpen) {
+            when (trunkOpen) {
+                true -> trunkWasOpen = true
+                false -> if (trunkWasOpen) viewModel.complete(LoadCompletion.TRUNK_CLOSED)
+                null -> Unit
+            }
+        }
         LoadGuideScreen(
             option = result.selected!!,
             steps = result.selectedGuide,
             onChangeCondition = viewModel::backToResult,
-            onFinished = onFinished,
+            onFinished = { viewModel.complete(LoadCompletion.BUTTON) },
         )
     } else {
         LoadResultScreen(
@@ -409,6 +439,129 @@ fun LoadGuideScreen(
     }
 }
 
+/**
+ * 적재 완료 (시안): "적재가 완료되었습니다", 출발 전 확인 카드, 가져갈 짐, 홈으로 / 지도 열기.
+ * 오른쪽은 최종 적재 배치도.
+ */
+@Composable
+fun LoadCompleteScreen(
+    option: ArrangementOptionUi,
+    items: List<LoadItem>,
+    completion: LoadCompletion,
+    onGoHome: () -> Unit,
+    onOpenMap: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 28.dp, end = 28.dp, top = 4.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(0.48f)
+                .fillMaxHeight(),
+        ) {
+            Text(text = "적재 진행  /  적재 완료", color = PleosTextSecondary, fontSize = 13.sp)
+            Spacer(Modifier.height(10.dp))
+            Text(text = "적재가 완료되었습니다", color = PleosTextPrimary, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = if (completion == LoadCompletion.TRUNK_CLOSED) "트렁크가 닫혔습니다" else "짐을 모두 실었습니다",
+                color = PleosTextSecondary,
+                fontSize = 16.sp,
+            )
+            Spacer(Modifier.height(28.dp))
+            DepartureCheckCard()
+            Spacer(Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "가져갈 짐 ", color = PleosTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text(text = "${items.sumOf { it.quantity }}", color = CountBlue, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            }
+            Spacer(Modifier.height(12.dp))
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                items.forEach { ItemRow(it, impossible = false) }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                BottomButton(text = "홈으로", primary = false, enabled = true, modifier = Modifier.weight(1f), onClick = onGoHome)
+                BottomButton(text = "⌖  지도 열기", primary = true, enabled = true, modifier = Modifier.weight(1f), onClick = onOpenMap)
+            }
+        }
+
+        // 오른쪽: 최종 적재 배치도
+        val shape = RoundedCornerShape(28.dp)
+        Column(
+            modifier = Modifier
+                .weight(0.52f)
+                .fillMaxHeight()
+                .padding(top = 60.dp)
+                .clip(shape)
+                .background(PanelBg)
+                .padding(horizontal = 32.dp, vertical = 28.dp),
+        ) {
+            Text(text = "최종 적재 배치도", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(20.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(PanelDivider),
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                TopView(layout = option.layout, dimmed = false, showArrows = false)
+            }
+        }
+    }
+}
+
+/** 출발 전 확인 (연한 파랑 카드 + ⓘ) */
+@Composable
+private fun DepartureCheckCard() {
+    val shape = RoundedCornerShape(24.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(InfoTop, InfoBottom)))
+            .border(1.dp, InfoBorder, shape)
+            .padding(horizontal = 28.dp, vertical = 32.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(InfoIconBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .border(2.dp, InfoIcon, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = "i", color = InfoIcon, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.width(20.dp))
+        Column {
+            Text(text = "출발 전 확인", color = PleosTextPrimary, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(12.dp))
+            Text(text = "짐이 움직이지 않도록 잘 고정했는지 확인하세요", color = PleosTextSecondary, fontSize = 18.sp)
+        }
+    }
+}
+
 /** 적재 단계 카드: ① 제목 / 설명, 구분선 */
 @Composable
 private fun GuideStepsCard(steps: List<GuideStepUi>?) {
@@ -570,7 +723,7 @@ private fun ResultPanel(state: LoadResultState, modifier: Modifier = Modifier) {
  * 트렁크에 싣는 짐은 아래(트렁크 입구)에서 넣는 방향 ↑를 붙이고, 그림 아래에 "트렁크 입구".
  */
 @Composable
-private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean) {
+private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean, showArrows: Boolean = true) {
     val image = ImageBitmap.imageResource(R.drawable.img_vehicle_tucson_top_view)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxHeight()) {
         BoxWithConstraints(
@@ -591,7 +744,7 @@ private fun TopView(layout: ArrangementLayoutUi?, dimmed: Boolean) {
             layout ?: return@BoxWithConstraints
             val scale = maxWidth / VehicleTopView.CROP_W.toFloat()
             layout.items.forEach { item -> OverlayBox(item.rect, scale, ItemFill, item.name) }
-            layout.items.filter { it.spaceKind == ArrangementLayoutMapper.KIND_TRUNK }.forEach { item ->
+            if (showArrows) layout.items.filter { it.spaceKind == ArrangementLayoutMapper.KIND_TRUNK }.forEach { item ->
                 Text(
                     text = "↑",
                     color = ArrowTeal,
@@ -660,4 +813,9 @@ private val ArrowTeal = Color(0xFF45D3C7)
 private val BadgeBg = Color(0xFFDDF5EC)
 private val BadgeText = Color(0xFF1F8A6E)
 private val StepBadgeBg = Color(0xFFE6EEFB)
+private val InfoTop = Color(0xFFF1F6FE)
+private val InfoBottom = Color(0xFFE2ECFA)
+private val InfoBorder = Color(0xFFCFDDF2)
+private val InfoIconBg = Color(0xFFDCE7F8)
+private val InfoIcon = Color(0xFF2E5FA8)
 private val StepBadgeText = Color(0xFF2E5FA8)
